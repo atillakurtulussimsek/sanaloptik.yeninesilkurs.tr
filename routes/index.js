@@ -5,6 +5,33 @@ var Test = require('../models/Test');
 var Admin = require('../models/Admin');
 var authMiddleware = require('../middleware/auth');
 var K12NetSSO = require('../utils/K12NetSSO');
+var multer = require('multer');
+var xlsx = require('xlsx');
+var path = require('path');
+var fs = require('fs');
+var crypto = require('crypto');
+
+// Multer konfigürasyonu (Excel dosyalar için)
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/');
+  },
+  filename: function (req, file, cb) {
+    cb(null, 'ogrenciler_' + Date.now() + '.xlsx');
+  }
+});
+
+const upload = multer({ 
+  storage: storage,
+  fileFilter: function (req, file, cb) {
+    if (file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+        file.mimetype === 'application/vnd.ms-excel') {
+      cb(null, true);
+    } else {
+      cb(new Error('Sadece Excel dosyaları (.xlsx, .xls) kabul edilir!'), false);
+    }
+  }
+});
 
 
 // Admin middleware
@@ -36,12 +63,14 @@ router.post('/giris', function(req, res, next) {
   const { numara, sifre } = req.body;
   
   // Giriş denemesi logla
+  const { ip, port } = req.systemLogger.getClientIPInfo(req);
   req.systemLogger.log({
     userType: 'student',
     actionType: 'login_attempt',
     actionCategory: 'auth',
     actionDescription: `Öğrenci giriş denemesi - Numara: ${numara}`,
-    ipAddress: req.systemLogger.getClientIP(req),
+    ipAddress: ip,
+    clientPort: port,
     userAgent: req.get('User-Agent'),
     method: req.method,
     url: req.originalUrl,
@@ -57,12 +86,14 @@ router.post('/giris', function(req, res, next) {
     
     if (!ogrenci) {
       // Başarısız giriş logla
+      const { ip, port } = req.systemLogger.getClientIPInfo(req);
       req.systemLogger.log({
         userType: 'student',
         actionType: 'login_failed',
         actionCategory: 'auth',
         actionDescription: `Başarısız giriş denemesi - Numara: ${numara}`,
-        ipAddress: req.systemLogger.getClientIP(req),
+        ipAddress: ip,
+        clientPort: port,
         userAgent: req.get('User-Agent'),
         method: req.method,
         url: req.originalUrl,
@@ -500,6 +531,333 @@ router.get('/admin/dashboard', adminAuthMiddleware, function(req, res, next) {
       istatistikler: istatistikler
     });
   });
+});
+
+// Öğrenci Yönetimi
+router.get('/admin/ogrenci-yonetimi', adminAuthMiddleware, function(req, res, next) {
+  const db = require('../database');
+  const page = parseInt(req.query.page) || 1;
+  const limit = 20;
+  const offset = (page - 1) * limit;
+  const search = req.query.search || '';
+  
+  let whereClause = '';
+  let queryParams = [];
+  
+  if (search) {
+    whereClause = 'WHERE (numara LIKE ? OR ad LIKE ? OR soyad LIKE ? OR email LIKE ?)';
+    const searchTerm = `%${search}%`;
+    queryParams = [searchTerm, searchTerm, searchTerm, searchTerm];
+  }
+  
+  // Toplam öğrenci sayısını al
+  db.query(
+    `SELECT COUNT(*) as total FROM ogrenciler ${whereClause}`,
+    queryParams,
+    (err, countResult) => {
+      if (err) return next(err);
+      
+      const totalStudents = countResult[0].total;
+      const totalPages = Math.ceil(totalStudents / limit);
+      
+      // Öğrencileri getir
+      db.query(
+        `SELECT * FROM ogrenciler ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+        [...queryParams, limit, offset],
+        (err, students) => {
+          if (err) return next(err);
+          
+          res.render('admin-ogrenci-yonetimi', {
+            admin: req.session.admin,
+            ogrenciler: students,
+            currentPage: page,
+            totalPages: totalPages,
+            totalStudents: totalStudents,
+            search: search,
+            hata: req.query.hata || null,
+            basari: req.query.basari || null
+          });
+        }
+      );
+    }
+  );
+});
+
+// Öğrenci ekleme
+router.post('/admin/ogrenci-ekle', adminAuthMiddleware, function(req, res, next) {
+  const { numara, ad, soyad, email, sifre } = req.body;
+  const db = require('../database');
+  
+  // Öğrenci numarası kontrolü
+  db.query(
+    'SELECT id FROM ogrenciler WHERE numara = ?',
+    [numara],
+    (err, existingStudent) => {
+      if (err) return next(err);
+      
+      if (existingStudent.length > 0) {
+        return res.redirect('/admin/ogrenci-yonetimi?hata=' + encodeURIComponent('Bu numara zaten kullanılıyor!'));
+      }
+      
+      // Şifreyi MD5 ile şifrele
+      const hashedPassword = crypto.createHash('md5').update(sifre).digest('hex');
+      
+      // Yeni öğrenci ekle
+      db.query(
+        'INSERT INTO ogrenciler (numara, ad, soyad, email, sifre) VALUES (?, ?, ?, ?, ?)',
+        [numara, ad, soyad, email, hashedPassword],
+        (err, result) => {
+          if (err) return next(err);
+          
+          // Log kaydet
+          req.systemLogger.log({
+            userType: 'admin',
+            userId: req.session.admin.id,
+            actionType: 'student_create',
+            actionCategory: 'student_management',
+            actionDescription: `Yeni öğrenci eklendi - Numara: ${numara}, Ad: ${ad} ${soyad}`,
+            ipAddress: req.systemLogger.getClientIP(req),
+            userAgent: req.get('User-Agent'),
+            targetData: { numara, ad, soyad, email }
+          }).catch(console.error);
+          
+          res.redirect('/admin/ogrenci-yonetimi?basari=' + encodeURIComponent('Öğrenci başarıyla eklendi!'));
+        }
+      );
+    }
+  );
+});
+
+// Öğrenci silme
+router.post('/admin/ogrenci-sil/:id', adminAuthMiddleware, function(req, res, next) {
+  const ogrenciId = req.params.id;
+  const db = require('../database');
+  
+  // Önce öğrenci bilgilerini al (log için)
+  db.query(
+    'SELECT * FROM ogrenciler WHERE id = ?',
+    [ogrenciId],
+    (err, ogrenci) => {
+      if (err) return next(err);
+      
+      if (ogrenci.length === 0) {
+        return res.redirect('/admin/ogrenci-yonetimi?hata=' + encodeURIComponent('Öğrenci bulunamadı!'));
+      }
+      
+      // Öğrenciyi sil
+      db.query(
+        'DELETE FROM ogrenciler WHERE id = ?',
+        [ogrenciId],
+        (err, result) => {
+          if (err) return next(err);
+          
+          // Log kaydet
+          req.systemLogger.log({
+            userType: 'admin',
+            userId: req.session.admin.id,
+            actionType: 'student_delete',
+            actionCategory: 'student_management',
+            actionDescription: `Öğrenci silindi - Numara: ${ogrenci[0].numara}, Ad: ${ogrenci[0].ad} ${ogrenci[0].soyad}`,
+            ipAddress: req.systemLogger.getClientIP(req),
+            userAgent: req.get('User-Agent'),
+            targetData: ogrenci[0]
+          }).catch(console.error);
+          
+          res.redirect('/admin/ogrenci-yonetimi?basari=' + encodeURIComponent('Öğrenci başarıyla silindi!'));
+        }
+      );
+    }
+  );
+});
+
+// Excel ile toplu öğrenci yükleme
+router.post('/admin/ogrenci-toplu-yukle', adminAuthMiddleware, upload.single('excelFile'), function(req, res, next) {
+  const db = require('../database');
+  const fs = require('fs');
+  
+  if (!req.file) {
+    return res.redirect('/admin/ogrenci-yonetimi?hata=' + encodeURIComponent('Lütfen bir Excel dosyası seçin!'));
+  }
+  
+  try {
+    // Excel dosyasını oku
+    const workbook = xlsx.readFile(req.file.path);
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+    const data = xlsx.utils.sheet_to_json(worksheet);
+    
+    if (data.length === 0) {
+      fs.unlinkSync(req.file.path); // Dosyayı sil
+      return res.redirect('/admin/ogrenci-yonetimi?hata=' + encodeURIComponent('Excel dosyası boş!'));
+    }
+    
+    let basariliEklenen = 0;
+    let hataliKayitlar = [];
+    let toplamKayit = data.length;
+    
+    // Her öğrenci için işlem yap
+    const processStudent = (index) => {
+      if (index >= data.length) {
+        // Tüm işlemler tamamlandı
+        fs.unlinkSync(req.file.path); // Dosyayı sil
+        
+        // Log kaydet
+        req.systemLogger.log({
+          userType: 'admin',
+          userId: req.session.admin.id,
+          actionType: 'bulk_student_upload',
+          actionCategory: 'student_management',
+          actionDescription: `Toplu öğrenci yükleme - Toplam: ${toplamKayit}, Başarılı: ${basariliEklenen}, Hatalı: ${hataliKayitlar.length}`,
+          ipAddress: req.systemLogger.getClientIP(req),
+          userAgent: req.get('User-Agent'),
+          targetData: { toplamKayit, basariliEklenen, hataliKayitSayisi: hataliKayitlar.length }
+        }).catch(console.error);
+        
+        if (hataliKayitlar.length > 0) {
+          const hataMesaji = `${basariliEklenen} öğrenci eklendi. ${hataliKayitlar.length} kayıt hatalı: ${hataliKayitlar.join(', ')}`;
+          return res.redirect('/admin/ogrenci-yonetimi?hata=' + encodeURIComponent(hataMesaji));
+        } else {
+          return res.redirect('/admin/ogrenci-yonetimi?basari=' + encodeURIComponent(`${basariliEklenen} öğrenci başarıyla eklendi!`));
+        }
+      }
+      
+      const student = data[index];
+      const numara = student.numara || student.Numara || student.NUMARA;
+      const ad = student.ad || student.Ad || student.AD || student.isim || student.İsim;
+      const soyad = student.soyad || student.Soyad || student.SOYAD || student.soyisim || student.Soyisim;
+      const email = student.email || student.Email || student.EMAIL || student.eposta;
+      const sifre = student.sifre || student.Sifre || student.SIFRE || student.password || numara; // Varsayılan şifre numara
+      
+      // Gerekli alanları kontrol et
+      if (!numara || !ad || !soyad) {
+        hataliKayitlar.push(`Satır ${index + 2}: Eksik bilgi`);
+        return processStudent(index + 1);
+      }
+      
+      // Öğrenci numarası kontrolü
+      db.query(
+        'SELECT id FROM ogrenciler WHERE numara = ?',
+        [numara],
+        (err, existingStudent) => {
+          if (err) {
+            hataliKayitlar.push(`Satır ${index + 2}: Veritabanı hatası`);
+            return processStudent(index + 1);
+          }
+          
+          if (existingStudent.length > 0) {
+            hataliKayitlar.push(`Satır ${index + 2}: ${numara} numarası zaten mevcut`);
+            return processStudent(index + 1);
+          }
+          
+          // Şifreyi MD5 ile şifrele
+          const hashedPassword = crypto.createHash('md5').update(sifre.toString()).digest('hex');
+          
+          // Yeni öğrenci ekle
+          db.query(
+            'INSERT INTO ogrenciler (numara, ad, soyad, email, sifre) VALUES (?, ?, ?, ?, ?)',
+            [numara, ad, soyad, email || '', hashedPassword],
+            (err, result) => {
+              if (err) {
+                hataliKayitlar.push(`Satır ${index + 2}: ${numara} - ${err.message}`);
+              } else {
+                basariliEklenen++;
+              }
+              processStudent(index + 1);
+            }
+          );
+        }
+      );
+    };
+    
+    // İşlemi başlat
+    processStudent(0);
+    
+  } catch (error) {
+    // Hata durumunda dosyayı sil
+    if (req.file && req.file.path) {
+      fs.unlinkSync(req.file.path);
+    }
+    
+    console.error('Excel işleme hatası:', error);
+    return res.redirect('/admin/ogrenci-yonetimi?hata=' + encodeURIComponent('Excel dosyası işlenirken hata oluştu!'));
+  }
+});
+
+// Excel şablonu indirme
+router.get('/admin/ogrenci-sablon-indir', adminAuthMiddleware, function(req, res, next) {
+  try {
+    // Örnek verilerle Excel şablonu oluştur
+    const sampleData = [
+      {
+        numara: '1001',
+        ad: 'Ahmet',
+        soyad: 'Yılmaz',
+        email: 'ahmet.yilmaz@email.com',
+        sifre: '1001'
+      },
+      {
+        numara: '1002',
+        ad: 'Fatma',
+        soyad: 'Demir',
+        email: 'fatma.demir@email.com',
+        sifre: '1002'
+      },
+      {
+        numara: '1003',
+        ad: 'Mehmet',
+        soyad: 'Kaya',
+        email: 'mehmet.kaya@email.com',
+        sifre: '1003'
+      }
+    ];
+    
+    // Workbook oluştur
+    const wb = xlsx.utils.book_new();
+    const ws = xlsx.utils.json_to_sheet(sampleData);
+    
+    // Sütun genişliklerini ayarla
+    ws['!cols'] = [
+      { wch: 10 }, // numara
+      { wch: 15 }, // ad
+      { wch: 15 }, // soyad
+      { wch: 25 }, // email
+      { wch: 10 }  // sifre
+    ];
+    
+    // Worksheet'i workbook'a ekle
+    xlsx.utils.book_append_sheet(wb, ws, 'Öğrenciler');
+    
+    // Dosya adı ve yolu
+    const fileName = `ogrenci_sablonu_${Date.now()}.xlsx`;
+    const filePath = path.join(__dirname, '..', 'uploads', fileName);
+    
+    // Excel dosyasını oluştur
+    xlsx.writeFile(wb, filePath);
+    
+    // Dosyayı indir
+    res.download(filePath, 'ogrenci_sablonu.xlsx', (err) => {
+      if (err) {
+        console.error('Dosya indirme hatası:', err);
+      }
+      // İndirme tamamlandıktan sonra dosyayı sil
+      fs.unlinkSync(filePath);
+    });
+    
+    // Log kaydet
+    req.systemLogger.log({
+      userType: 'admin',
+      userId: req.session.admin.id,
+      actionType: 'template_download',
+      actionCategory: 'student_management',
+      actionDescription: 'Öğrenci Excel şablonu indirildi',
+      ipAddress: req.systemLogger.getClientIP(req),
+      userAgent: req.get('User-Agent')
+    }).catch(console.error);
+    
+  } catch (error) {
+    console.error('Şablon oluşturma hatası:', error);
+    res.redirect('/admin/ogrenci-yonetimi?hata=' + encodeURIComponent('Şablon oluşturulurken hata oluştu!'));
+  }
 });
 
 // Test oluşturma sayfası
@@ -1567,6 +1925,253 @@ router.get('/api/video-izleme-sayilari', authMiddleware, async function(req, res
       message: 'Video izleme sayıları alınamadı'
     });
   }
+});
+
+// Öğrenci detay sayfası
+router.get('/admin/ogrenci-detay/:id', adminAuthMiddleware, function(req, res, next) {
+  const ogrenciId = req.params.id;
+  const db = require('../database');
+  
+  // Öğrenci bilgilerini al
+  db.query(
+    'SELECT * FROM ogrenciler WHERE id = ?',
+    [ogrenciId],
+    (err, ogrenciResults) => {
+      if (err || ogrenciResults.length === 0) {
+        console.error('Öğrenci bulunamadı:', err);
+        return res.redirect('/admin/ogrenci-yonetimi?hata=' + encodeURIComponent('Öğrenci bulunamadı'));
+      }
+      
+      const ogrenci = ogrenciResults[0];
+      
+      // Öğrencinin test sonuçlarını al
+      db.query(`
+        SELECT ts.*, th.test_adi, th.test_kodu, th.soru_sayisi,
+               DATE_FORMAT(ts.tamamlanma_tarihi, '%d.%m.%Y %H:%i') as formatli_tarih
+        FROM test_sonuclari ts
+        JOIN test_havuzu th ON ts.test_id = th.id
+        WHERE ts.ogrenci_id = ?
+        ORDER BY ts.tamamlanma_tarihi DESC
+      `, [ogrenciId], (err, testResults) => {
+        if (err) {
+          console.error('Test sonuçları alınamadı:', err);
+          testResults = [];
+        }
+        
+        res.render('admin-ogrenci-detay', {
+          admin: req.session.admin,
+          ogrenci: ogrenci,
+          testSonuclari: testResults,
+          hata: req.query.hata || null,
+          basari: req.query.basari || null
+        });
+      });
+    }
+  );
+});
+
+// Test düzenleme sayfası
+router.get('/admin/test-duzenle', adminAuthMiddleware, function(req, res, next) {
+  res.render('admin-test-duzenle', {
+    admin: req.session.admin,
+    test: null,
+    hata: req.query.hata || null,
+    basari: req.query.basari || null
+  });
+});
+
+// Test kodu ile test getirme (AJAX)
+router.get('/admin/test-getir', adminAuthMiddleware, function(req, res, next) {
+  const testKodu = req.query.kod;
+  
+  if (!testKodu) {
+    return res.json({ success: false, message: 'Test kodu gereklidir!' });
+  }
+  
+  const db = require('../database');
+  db.query(
+    'SELECT * FROM test_havuzu WHERE UPPER(test_kodu) = ?',
+    [testKodu.toUpperCase()],
+    (err, results) => {
+      if (err) {
+        console.error('Test getirme hatası:', err);
+        return res.json({ success: false, message: 'Veritabanı hatası!' });
+      }
+      
+      if (results.length === 0) {
+        return res.json({ success: false, message: 'Test bulunamadı!' });
+      }
+      
+      res.json({ success: true, test: results[0] });
+    }
+  );
+});
+
+// Test güncelleme
+router.post('/admin/test-guncelle', adminAuthMiddleware, function(req, res, next) {
+  const { test_id, test_adi, soru_sayisi, ...cevaplarVeVideolar } = req.body;
+  const db = require('../database');
+  
+  if (!test_id) {
+    return res.redirect('/admin/test-duzenle?hata=' + encodeURIComponent('Test ID gereklidir!'));
+  }
+  
+  // Cevapları ve videoları ayır
+  const cevaplar = {};
+  const videolar = {};
+  
+  Object.keys(cevaplarVeVideolar).forEach(key => {
+    if (key.startsWith('cevap_')) {
+      cevaplar[key] = cevaplarVeVideolar[key] || null;
+    } else if (key.startsWith('video_')) {
+      videolar[key] = cevaplarVeVideolar[key] || null;
+    }
+  });
+  
+  // Güncelleme sorgusu oluştur
+  const updateFields = ['test_adi = ?', 'soru_sayisi = ?'];
+  const updateValues = [test_adi, parseInt(soru_sayisi)];
+  
+  // Cevapları ekle
+  for (let i = 1; i <= 25; i++) {
+    const cevapKey = `cevap_${i}`;
+    updateFields.push(`${cevapKey} = ?`);
+    updateValues.push(cevaplar[cevapKey] || null);
+  }
+  
+  // Videoları ekle
+  for (let i = 1; i <= 25; i++) {
+    const videoKey = `video_${i}`;
+    updateFields.push(`${videoKey} = ?`);
+    updateValues.push(videolar[videoKey] || null);
+  }
+  
+  updateValues.push(test_id);
+  
+  const updateQuery = `UPDATE test_havuzu SET ${updateFields.join(', ')} WHERE id = ?`;
+  
+  db.query(updateQuery, updateValues, (err, result) => {
+    if (err) {
+      console.error('Test güncelleme hatası:', err);
+      return res.redirect('/admin/test-duzenle?hata=' + encodeURIComponent('Test güncellenirken hata oluştu!'));
+    }
+    
+    // Log kaydet
+    req.systemLogger.log({
+      userType: 'admin',
+      userId: req.session.admin.id,
+      actionType: 'test_update',
+      actionCategory: 'test_management',
+      actionDescription: `Test güncellendi - ID: ${test_id}, Test Adı: ${test_adi}`,
+      ipAddress: req.systemLogger.getClientIP(req),
+      userAgent: req.get('User-Agent'),
+      targetData: { test_id, test_adi, soru_sayisi }
+    }).catch(console.error);
+    
+    res.redirect('/admin/test-duzenle?basari=' + encodeURIComponent('Test başarıyla güncellendi!'));
+  });
+});
+
+// Test yeniden değerlendirme
+router.post('/admin/test-yeniden-degerlendir/:testId', adminAuthMiddleware, function(req, res, next) {
+  const testId = req.params.testId;
+  const db = require('../database');
+  
+  // Önce test bilgilerini al
+  db.query(
+    'SELECT test_kodu, test_adi FROM test_havuzu WHERE id = ?',
+    [testId],
+    (err, testResults) => {
+      if (err || testResults.length === 0) {
+        return res.json({ success: false, message: 'Test bulunamadı!' });
+      }
+      
+      const test = testResults[0];
+      
+      // Test sonuçlarını yeniden hesapla
+      db.query(`
+        SELECT ts.id, ts.ogrenci_id, ts.cevaplar, th.*,
+               o.ad, o.soyad, o.numara
+        FROM test_sonuclari ts
+        JOIN test_havuzu th ON ts.test_id = th.id
+        JOIN ogrenciler o ON ts.ogrenci_id = o.id
+        WHERE ts.test_id = ?
+      `, [testId], (err, results) => {
+        if (err) {
+          console.error('Test sonuçları getirme hatası:', err);
+          return res.json({ success: false, message: 'Test sonuçları getirilemedi!' });
+        }
+        
+        if (results.length === 0) {
+          return res.json({ success: false, message: 'Bu teste ait sonuç bulunamadı!' });
+        }
+        
+        let guncellenenSayisi = 0;
+        let toplamSonuc = results.length;
+        
+        // Her test sonucunu yeniden değerlendir
+        const processResult = (index) => {
+          if (index >= results.length) {
+            // Tüm işlemler tamamlandı
+            req.systemLogger.log({
+              userType: 'admin',
+              userId: req.session.admin.id,
+              actionType: 'test_reevaluate',
+              actionCategory: 'test_management',
+              actionDescription: `Test yeniden değerlendirildi - ${test.test_kodu} (${test.test_adi}) - ${guncellenenSayisi}/${toplamSonuc} sonuç güncellendi`,
+              ipAddress: req.systemLogger.getClientIP(req),
+              userAgent: req.get('User-Agent'),
+              targetData: { testId, test_kodu: test.test_kodu, guncellenenSayisi, toplamSonuc }
+            }).catch(console.error);
+            
+            return res.json({ 
+              success: true, 
+              message: `${guncellenenSayisi}/${toplamSonuc} test sonucu yeniden değerlendirildi!`,
+              guncellenenSayisi,
+              toplamSonuc
+            });
+          }
+          
+          const sonuc = results[index];
+          const ogrenciCevaplari = JSON.parse(sonuc.cevaplar || '{}');
+          
+          // Puanı yeniden hesapla
+          let dogruSayisi = 0;
+          let yanlisSayisi = 0;
+          let bosSayisi = 0;
+          
+          for (let i = 1; i <= sonuc.soru_sayisi; i++) {
+            const dogruCevap = sonuc[`cevap_${i}`];
+            const ogrenciCevabi = ogrenciCevaplari[i];
+            
+            if (!ogrenciCevabi || ogrenciCevabi === '') {
+              bosSayisi++;
+            } else if (ogrenciCevabi.toUpperCase() === dogruCevap?.toUpperCase()) {
+              dogruSayisi++;
+            } else {
+              yanlisSayisi++;
+            }
+          }
+          
+          const puan = Math.round((dogruSayisi / sonuc.soru_sayisi) * 100);
+          
+          // Sonucu güncelle
+          db.query(`
+            UPDATE test_sonuclari 
+            SET dogru_sayisi = ?, yanlis_sayisi = ?, bos_sayisi = ?, puan = ?
+            WHERE id = ?
+          `, [dogruSayisi, yanlisSayisi, bosSayisi, puan, sonuc.id], (err, updateResult) => {
+            if (!err) {
+              guncellenenSayisi++;
+            }
+            processResult(index + 1);
+          });
+        };
+        
+        processResult(0);
+      });
+    }
+  );
 });
 
 module.exports = router;

@@ -12,6 +12,9 @@ const { Logger, createLoggerMiddleware } = require('./logger');
 var app = express();
 const systemLogger = new Logger();
 
+// Trust proxy ayarı - gerçek IP adreslerini almak için
+app.set('trust proxy', true);
+
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
 

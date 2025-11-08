@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Öğrenci Yönetimi - Admin Panel</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f0f2f5;
+      min-height: 100vh;
+    }
+    
+    .header {
+      background: linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #7e22ce 100%);
+      color: white;
+      padding: 20px 0;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    .header-content {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 0 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .header h1 {
+      font-size: 24px;
+      font-weight: 700;
+    }
+    
+    .nav-buttons {
+      display: flex;
+      gap: 15px;
+    }
+    
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .btn-back {
+      background: rgba(255,255,255,0.2);
+      color: white;
+      border: 2px solid white;
+    }
+    
+    .btn-back:hover {
+      background: white;
+      color: #7e22ce;
+    }
+    
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+    
+    .btn-success {
+      background: linear-gradient(135deg, #56ab2f 0%, #a8e6cf 100%);
+      color: white;
+    }
+    
+    .btn-success:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(86, 171, 47, 0.4);
+    }
+    
+    .btn-danger {
+      background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+      color: white;
+    }
+    
+    .btn-danger:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(255, 107, 107, 0.4);
+    }
+    
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 30px;
+    }
+    
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+      padding: 20px;
+      background: white;
+      border-radius: 15px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+    }
+    
+    .page-title {
+      font-size: 28px;
+      font-weight: 700;
+      color: #333;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .stats-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+    
+    .stat-card {
+      background: white;
+      border-radius: 15px;
+      padding: 25px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+      text-align: center;
+      transition: all 0.3s;
+    }
+    
+    .stat-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+    }
+    
+    .stat-number {
+      font-size: 36px;
+      font-weight: 900;
+      color: #7e22ce;
+      margin-bottom: 10px;
+    }
+    
+    .stat-label {
+      font-size: 14px;
+      color: #666;
+      font-weight: 600;
+    }
+    
+    .actions-section {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+    
+    .action-card {
+      background: white;
+      border-radius: 15px;
+      padding: 25px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+    }
+    
+    .action-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #333;
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .form-group {
+      margin-bottom: 15px;
+    }
+    
+    .form-label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 600;
+      color: #333;
+    }
+    
+    .form-input {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e9ecef;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: all 0.3s;
+    }
+    
+    .form-input:focus {
+      outline: none;
+      border-color: #7e22ce;
+      box-shadow: 0 0 0 3px rgba(126, 34, 206, 0.1);
+    }
+    
+    .file-upload {
+      border: 2px dashed #7e22ce;
+      border-radius: 10px;
+      padding: 30px;
+      text-align: center;
+      background: #f8f9fa;
+      transition: all 0.3s;
+    }
+    
+    .file-upload:hover {
+      background: #e9ecef;
+    }
+    
+    .search-section {
+      background: white;
+      border-radius: 15px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+    }
+    
+    .search-form {
+      display: flex;
+      gap: 15px;
+      align-items: end;
+    }
+    
+    .search-input {
+      flex: 1;
+    }
+    
+    .students-table {
+      background: white;
+      border-radius: 15px;
+      overflow: hidden;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+    }
+    
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    
+    .table th,
+    .table td {
+      padding: 15px;
+      text-align: left;
+      border-bottom: 1px solid #e9ecef;
+    }
+    
+    .table th {
+      background: #f8f9fa;
+      font-weight: 700;
+      color: #333;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .table tbody tr:hover {
+      background: #f8f9fa;
+    }
+    
+    .pagination {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    
+    .pagination a,
+    .pagination span {
+      padding: 8px 12px;
+      border: 1px solid #e9ecef;
+      border-radius: 6px;
+      text-decoration: none;
+      color: #333;
+      transition: all 0.3s;
+    }
+    
+    .pagination a:hover {
+      background: #7e22ce;
+      color: white;
+      border-color: #7e22ce;
+    }
+    
+    .pagination .current {
+      background: #7e22ce;
+      color: white;
+      border-color: #7e22ce;
+    }
+    
+    .alert {
+      padding: 15px 20px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      font-weight: 600;
+    }
+    
+    .alert-success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    
+    .alert-danger {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.5);
+    }
+    
+    .modal-content {
+      background-color: white;
+      margin: 5% auto;
+      padding: 0;
+      border-radius: 15px;
+      width: 90%;
+      max-width: 500px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    }
+    
+    .modal-header {
+      background: linear-gradient(135deg, #7e22ce 0%, #667eea 100%);
+      color: white;
+      padding: 20px;
+      border-radius: 15px 15px 0 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .modal-body {
+      padding: 30px;
+    }
+    
+    .close {
+      color: white;
+      font-size: 28px;
+      font-weight: bold;
+      cursor: pointer;
+      background: none;
+      border: none;
+    }
+    
+    .close:hover {
+      opacity: 0.7;
+    }
+
+    @media (max-width: 768px) {
+      .actions-section {
+        grid-template-columns: 1fr;
+      }
+      
+      .search-form {
+        flex-direction: column;
+      }
+      
+      .search-input {
+        width: 100%;
+      }
+      
+      .table {
+        font-size: 12px;
+      }
+      
+      .table th,
+      .table td {
+        padding: 8px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-content">
+      <h1>👥 Öğrenci Yönetimi</h1>
+      <div class="nav-buttons">
+        <a href="/admin/dashboard" class="btn btn-back">
+          ← Dashboard'a Dön
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <!-- Uyarı Mesajları -->
+    <% if (hata) { %>
+      <div class="alert alert-danger">
+        ❌ <%= hata %>
+      </div>
+    <% } %>
+    
+    <% if (basari) { %>
+      <div class="alert alert-success">
+        ✅ <%= basari %>
+      </div>
+    <% } %>
+
+    <!-- İstatistik Kartları -->
+    <div class="stats-cards">
+      <div class="stat-card">
+        <div class="stat-number"><%= totalStudents %></div>
+        <div class="stat-label">Toplam Öğrenci</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number"><%= currentPage %></div>
+        <div class="stat-label">Sayfa</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number"><%= totalPages %></div>
+        <div class="stat-label">Toplam Sayfa</div>
+      </div>
+    </div>
+
+    <!-- Eylem Kartları -->
+    <div class="actions-section">
+      <!-- Tekil Öğrenci Ekleme -->
+      <div class="action-card">
+        <div class="action-title">
+          👤 Tekil Öğrenci Ekle
+        </div>
+        <form action="/admin/ogrenci-ekle" method="POST">
+          <div class="form-group">
+            <label class="form-label">Öğrenci Numarası *</label>
+            <input type="text" name="numara" class="form-input" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Ad *</label>
+            <input type="text" name="ad" class="form-input" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Soyad *</label>
+            <input type="text" name="soyad" class="form-input" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">E-posta</label>
+            <input type="email" name="email" class="form-input">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Şifre *</label>
+            <input type="password" name="sifre" class="form-input" required>
+          </div>
+          <button type="submit" class="btn btn-success">
+            ✅ Öğrenci Ekle
+          </button>
+        </form>
+      </div>
+
+      <!-- Toplu Öğrenci Yükleme -->
+      <div class="action-card">
+        <div class="action-title">
+          📊 Toplu Öğrenci Yükleme
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+          <a href="/admin/ogrenci-sablon-indir" class="btn btn-primary">
+            📥 Excel Şablonu İndir
+          </a>
+        </div>
+        
+        <form action="/admin/ogrenci-toplu-yukle" method="POST" enctype="multipart/form-data">
+          <div class="file-upload">
+            <div style="font-size: 48px; color: #7e22ce; margin-bottom: 15px;">📁</div>
+            <div style="font-size: 16px; font-weight: 600; margin-bottom: 10px;">
+              Excel Dosyasını Seçin
+            </div>
+            <div style="font-size: 12px; color: #666; margin-bottom: 15px;">
+              Desteklenen formatlar: .xlsx, .xls
+            </div>
+            <input type="file" name="excelFile" accept=".xlsx,.xls" required class="form-input">
+          </div>
+          <button type="submit" class="btn btn-success" style="width: 100%; margin-top: 15px;">
+            🚀 Dosyayı Yükle
+          </button>
+        </form>
+        
+        <div style="margin-top: 15px; padding: 10px; background: #e3f2fd; border-radius: 8px; font-size: 12px;">
+          <strong>📋 Excel Formatı:</strong><br>
+          • numara, ad, soyad (zorunlu)<br>
+          • email, sifre (isteğe bağlı)<br>
+          • Şifre boş bırakılırsa numara kullanılır
+        </div>
+      </div>
+    </div>
+
+    <!-- Arama -->
+    <div class="search-section">
+      <form action="/admin/ogrenci-yonetimi" method="GET" class="search-form">
+        <div class="search-input">
+          <label class="form-label">🔍 Öğrenci Ara</label>
+          <input type="text" name="search" class="form-input" placeholder="Numara, ad, soyad veya e-posta ile ara..." value="<%= search %>">
+        </div>
+        <button type="submit" class="btn btn-primary">Ara</button>
+        <% if (search) { %>
+          <a href="/admin/ogrenci-yonetimi" class="btn btn-secondary">Temizle</a>
+        <% } %>
+      </form>
+    </div>
+
+    <!-- Öğrenci Listesi -->
+    <div class="students-table">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Numara</th>
+            <th>Ad Soyad</th>
+            <th>E-posta</th>
+            <th>Kayıt Tarihi</th>
+            <th>İşlemler</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% if (ogrenciler.length === 0) { %>
+            <tr>
+              <td colspan="5" style="text-align: center; padding: 40px; color: #666;">
+                <div style="font-size: 48px; margin-bottom: 15px;">😔</div>
+                <div style="font-size: 18px; font-weight: 600;">Öğrenci bulunamadı</div>
+                <div style="font-size: 14px; margin-top: 5px;">
+                  <% if (search) { %>
+                    "<%= search %>" araması için sonuç bulunamadı
+                  <% } else { %>
+                    Henüz hiç öğrenci eklenmemiş
+                  <% } %>
+                </div>
+              </td>
+            </tr>
+          <% } else { %>
+            <% ogrenciler.forEach(function(ogrenci) { %>
+              <tr>
+                <td><strong><%= ogrenci.numara %></strong></td>
+                <td>
+                  <a href="/admin/ogrenci-detay/<%= ogrenci.id %>" style="text-decoration: none; color: #7e22ce; font-weight: 600;">
+                    <%= ogrenci.ad %> <%= ogrenci.soyad %>
+                  </a>
+                </td>
+                <td><%= ogrenci.email || '-' %></td>
+                <td>
+                  <%= new Date(ogrenci.created_at).toLocaleDateString('tr-TR', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  }) %>
+                </td>
+                <td>
+                  <button onclick="openDeleteModal(<%= ogrenci.id %>, '<%= ogrenci.numara %>', '<%= ogrenci.ad %> <%= ogrenci.soyad %>')" class="btn btn-danger" style="font-size: 12px; padding: 5px 10px;">
+                    🗑️ Sil
+                  </button>
+                </td>
+              </tr>
+            <% }); %>
+          <% } %>
+        </tbody>
+      </table>
+
+      <!-- Sayfalama -->
+      <% if (totalPages > 1) { %>
+        <div class="pagination">
+          <% if (currentPage > 1) { %>
+            <a href="/admin/ogrenci-yonetimi?page=<%= currentPage - 1 %><%= search ? '&search=' + encodeURIComponent(search) : '' %>">« Önceki</a>
+          <% } %>
+          
+          <% for (let i = Math.max(1, currentPage - 2); i <= Math.min(totalPages, currentPage + 2); i++) { %>
+            <% if (i === currentPage) { %>
+              <span class="current"><%= i %></span>
+            <% } else { %>
+              <a href="/admin/ogrenci-yonetimi?page=<%= i %><%= search ? '&search=' + encodeURIComponent(search) : '' %>"><%= i %></a>
+            <% } %>
+          <% } %>
+          
+          <% if (currentPage < totalPages) { %>
+            <a href="/admin/ogrenci-yonetimi?page=<%= currentPage + 1 %><%= search ? '&search=' + encodeURIComponent(search) : '' %>">Sonraki »</a>
+          <% } %>
+        </div>
+      <% } %>
+    </div>
+  </div>
+
+  <!-- Silme Onay Modalı -->
+  <div id="deleteModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>🗑️ Öğrenci Sil</h3>
+        <button class="close" onclick="closeDeleteModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="margin-bottom: 20px; font-size: 16px;">
+          <strong id="studentInfo"></strong> öğrencisini silmek istediğinize emin misiniz?
+        </p>
+        <p style="color: #dc3545; font-size: 14px; margin-bottom: 25px;">
+          ⚠️ Bu işlem geri alınamaz! Öğrencinin tüm test kayıtları da silinecektir.
+        </p>
+        <div style="display: flex; gap: 15px; justify-content: flex-end;">
+          <button onclick="closeDeleteModal()" class="btn" style="background: #6c757d; color: white;">
+            İptal
+          </button>
+          <form id="deleteForm" method="POST" style="display: inline;">
+            <button type="submit" class="btn btn-danger">
+              🗑️ Evet, Sil
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function openDeleteModal(studentId, studentNumber, studentName) {
+      document.getElementById('studentInfo').textContent = `${studentNumber} - ${studentName}`;
+      document.getElementById('deleteForm').action = `/admin/ogrenci-sil/${studentId}`;
+      document.getElementById('deleteModal').style.display = 'block';
+    }
+    
+    function closeDeleteModal() {
+      document.getElementById('deleteModal').style.display = 'none';
+    }
+    
+    // Modal dışına tıklanırsa kapat
+    window.onclick = function(event) {
+      const modal = document.getElementById('deleteModal');
+      if (event.target === modal) {
+        closeDeleteModal();
+      }
+    }
+    
+    // ESC tuşu ile kapat
+    document.addEventListener('keydown', function(event) {
+      if (event.key === 'Escape') {
+        closeDeleteModal();
+      }
+    });
+  </script>
+</body>
+</html>

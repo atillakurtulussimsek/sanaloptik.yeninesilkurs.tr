@@ -28,6 +28,7 @@ class Logger {
         responseData = null,
         sessionId = null,
         ipAddress,
+        clientPort = null,
         userAgent = null,
         referer = null,
         method = null,
@@ -42,9 +43,9 @@ class Logger {
         INSERT INTO logs (
           user_id, user_type, action_type, action_category, action_description,
           target_type, target_id, request_data, response_data, session_id,
-          ip_address, user_agent, referer, method, url, status_code,
+          ip_address, client_port, user_agent, referer, method, url, status_code,
           response_time_ms, error_message, additional_data
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
 
       const values = [
@@ -52,7 +53,7 @@ class Logger {
         targetType, targetId, 
         requestData ? JSON.stringify(requestData) : null,
         responseData ? JSON.stringify(responseData) : null,
-        sessionId, ipAddress, userAgent, referer, method, url, statusCode,
+        sessionId, ipAddress, clientPort, userAgent, referer, method, url, statusCode,
         responseTimeMs, errorMessage,
         additionalData ? JSON.stringify(additionalData) : null
       ];
@@ -67,6 +68,7 @@ class Logger {
 
   // Öğrenci işlemleri için kısayollar
   async logStudentAuth(action, userId, req, additionalData = {}) {
+    const { ip, port } = this.getClientIPInfo(req);
     await this.log({
       userId,
       userType: 'student',
@@ -74,7 +76,8 @@ class Logger {
       actionCategory: 'auth',
       actionDescription: this.getAuthDescription(action),
       sessionId: req.session?.id,
-      ipAddress: this.getClientIP(req),
+      ipAddress: ip,
+      clientPort: port,
       userAgent: req.get('User-Agent'),
       referer: req.get('Referer'),
       method: req.method,
@@ -84,6 +87,7 @@ class Logger {
   }
 
   async logStudentTest(action, userId, testId, req, additionalData = {}) {
+    const { ip, port } = this.getClientIPInfo(req);
     await this.log({
       userId,
       userType: 'student',
@@ -93,7 +97,8 @@ class Logger {
       targetType: 'test',
       targetId: testId,
       sessionId: req.session?.id,
-      ipAddress: this.getClientIP(req),
+      ipAddress: ip,
+      clientPort: port,
       userAgent: req.get('User-Agent'),
       referer: req.get('Referer'),
       method: req.method,
@@ -103,6 +108,7 @@ class Logger {
   }
 
   async logStudentAnswer(userId, testId, questionNumber, selectedAnswer, req, additionalData = {}) {
+    const { ip, port } = this.getClientIPInfo(req);
     await this.log({
       userId,
       userType: 'student',
@@ -112,7 +118,8 @@ class Logger {
       targetType: 'test',
       targetId: testId,
       sessionId: req.session?.id,
-      ipAddress: this.getClientIP(req),
+      ipAddress: ip,
+      clientPort: port,
       userAgent: req.get('User-Agent'),
       requestData: { questionNumber, selectedAnswer },
       additionalData
@@ -120,6 +127,7 @@ class Logger {
   }
 
   async logVideoAccess(userId, testId, questionNumber, req, additionalData = {}) {
+    const { ip, port } = this.getClientIPInfo(req);
     await this.log({
       userId,
       userType: 'student',
@@ -129,7 +137,8 @@ class Logger {
       targetType: 'test',
       targetId: testId,
       sessionId: req.session?.id,
-      ipAddress: this.getClientIP(req),
+      ipAddress: ip,
+      clientPort: port,
       userAgent: req.get('User-Agent'),
       requestData: { questionNumber },
       additionalData
@@ -138,6 +147,7 @@ class Logger {
 
   // Admin işlemleri için kısayollar
   async logAdminAuth(action, adminId, req, additionalData = {}) {
+    const { ip, port } = this.getClientIPInfo(req);
     await this.log({
       userId: adminId,
       userType: 'admin',
@@ -145,7 +155,8 @@ class Logger {
       actionCategory: 'auth',
       actionDescription: this.getAuthDescription(action),
       sessionId: req.session?.id,
-      ipAddress: this.getClientIP(req),
+      ipAddress: ip,
+      clientPort: port,
       userAgent: req.get('User-Agent'),
       referer: req.get('Referer'),
       method: req.method,
@@ -155,6 +166,7 @@ class Logger {
   }
 
   async logAdminAction(action, adminId, req, targetType = null, targetId = null, additionalData = {}) {
+    const { ip, port } = this.getClientIPInfo(req);
     await this.log({
       userId: adminId,
       userType: 'admin',
@@ -164,7 +176,8 @@ class Logger {
       targetType,
       targetId,
       sessionId: req.session?.id,
-      ipAddress: this.getClientIP(req),
+      ipAddress: ip,
+      clientPort: port,
       userAgent: req.get('User-Agent'),
       referer: req.get('Referer'),
       method: req.method,
@@ -187,6 +200,7 @@ class Logger {
 
   // Hata kayıtları
   async logError(error, req = null, userId = null, userType = 'system') {
+    const { ip, port } = req ? this.getClientIPInfo(req) : { ip: '127.0.0.1', port: null };
     await this.log({
       userId,
       userType,
@@ -194,7 +208,8 @@ class Logger {
       actionCategory: 'error',
       actionDescription: error.message || 'Bilinmeyen hata',
       errorMessage: error.stack || error.toString(),
-      ipAddress: req ? this.getClientIP(req) : '127.0.0.1',
+      ipAddress: ip,
+      clientPort: port,
       userAgent: req ? req.get('User-Agent') : null,
       method: req ? req.method : null,
       url: req ? req.originalUrl : null,
@@ -211,9 +226,55 @@ class Logger {
            req.connection?.remoteAddress || 
            req.socket?.remoteAddress ||
            (req.connection?.socket ? req.connection.socket.remoteAddress : null) ||
-           req.headers['x-forwarded-for']?.split(',')[0] ||
+           req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
            req.headers['x-real-ip'] ||
+           req.headers['cf-connecting-ip'] ||
+           req.headers['x-client-ip'] ||
            '127.0.0.1';
+  }
+
+  getClientIPInfo(req) {
+    let ip = req.ip || 
+             req.connection?.remoteAddress || 
+             req.socket?.remoteAddress ||
+             (req.connection?.socket ? req.connection.socket.remoteAddress : null) ||
+             '127.0.0.1';
+
+    // X-Forwarded-For header'ını kontrol et (proxy/load balancer durumlarında)
+    const xForwardedFor = req.headers['x-forwarded-for'];
+    if (xForwardedFor) {
+      const ips = xForwardedFor.split(',').map(ip => ip.trim());
+      ip = ips[0]; // İlk IP gerçek client IP'sidir
+    }
+
+    // Diğer proxy header'larını kontrol et
+    ip = ip || 
+         req.headers['x-real-ip'] ||
+         req.headers['cf-connecting-ip'] ||
+         req.headers['x-client-ip'] ||
+         '127.0.0.1';
+
+    // Port bilgisini al
+    let port = null;
+    if (req.connection?.remotePort) {
+      port = req.connection.remotePort;
+    } else if (req.socket?.remotePort) {
+      port = req.socket.remotePort;
+    } else if (req.headers['x-forwarded-port']) {
+      port = parseInt(req.headers['x-forwarded-port']);
+    }
+
+    // IPv6 mapped IPv4 adreslerini temizle ve localhost'u normalize et
+    if (ip && ip.startsWith('::ffff:')) {
+      ip = ip.substring(7);
+    }
+    
+    // IPv6 localhost'u IPv4'e çevir
+    if (ip === '::1') {
+      ip = '127.0.0.1';
+    }
+
+    return { ip, port };
   }
 
   getAuthDescription(action) {
@@ -266,32 +327,8 @@ function createLoggerMiddleware(logger) {
     res.send = function(body) {
       const responseTime = Date.now() - startTime;
       
-      // Her HTTP isteğini logla (sadece önemli endpoint'ler)
-      const importantRoutes = ['/auth', '/test', '/admin', '/api'];
-      const shouldLog = importantRoutes.some(route => req.path.startsWith(route));
-      
-      if (shouldLog) {
-        const userId = req.session?.ogrenci?.id || req.session?.admin?.id || null;
-        const userType = req.session?.ogrenci ? 'student' : 
-                        req.session?.admin ? 'admin' : 'system';
-        
-        logger.log({
-          userId,
-          userType,
-          actionType: 'http_request',
-          actionCategory: 'system',
-          actionDescription: `${req.method} ${req.path}`,
-          sessionId: req.session?.id,
-          ipAddress: logger.getClientIP(req),
-          userAgent: req.get('User-Agent'),
-          referer: req.get('Referer'),
-          method: req.method,
-          url: req.originalUrl,
-          statusCode: res.statusCode,
-          responseTimeMs: responseTime,
-          requestData: req.method === 'POST' ? req.body : req.query
-        }).catch(console.error);
-      }
+      // HTTP isteklerini loglama kapatıldı
+      // Sadece özel log fonksiyonları kullanılacak
       
       return originalSend.call(this, body);
     };

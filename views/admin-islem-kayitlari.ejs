@@ -486,7 +486,7 @@
                   <%= log.action_description %>
                 </td>
                 <td class="ip-address">
-                  <%= log.ip_address %>
+                  <%= log.ip_address %><% if (log.client_port) { %>:<%= log.client_port %><% } %>
                 </td>
                 <td>
                   <% if (log.method || log.url || log.user_agent || log.error_message) { %>
