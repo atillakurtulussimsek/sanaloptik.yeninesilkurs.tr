@@ -5,7 +5,8 @@ var Test = require('../models/Test');
 var Admin = require('../models/Admin');
 var authMiddleware = require('../middleware/auth');
 var K12NetSSO = require('../utils/K12NetSSO');
-var logger = require('../logger');
+var { Logger } = require('../logger');
+var logger = new Logger();
 var multer = require('multer');
 var xlsx = require('xlsx');
 var path = require('path');
@@ -72,7 +73,7 @@ router.post('/giris', function(req, res, next) {
     actionDescription: `Öğrenci giriş denemesi - Numara: ${numara}`,
     ipAddress: ip,
     clientPort: port,
-    userAgent: req.get('User-Agent'),
+    userAgent: logger.getUserAgent(req),
     method: req.method,
     url: req.originalUrl,
     requestData: { numara }
@@ -95,7 +96,7 @@ router.post('/giris', function(req, res, next) {
         actionDescription: `Başarısız giriş denemesi - Numara: ${numara}`,
         ipAddress: ip,
         clientPort: port,
-        userAgent: req.get('User-Agent'),
+        userAgent: logger.getUserAgent(req),
         method: req.method,
         url: req.originalUrl,
         requestData: { numara }
@@ -176,7 +177,7 @@ router.get('/test/:id', authMiddleware, function(req, res, next) {
         targetType: 'test',
         targetId: testId,
         ipAddress: req.systemLogger.getClientIP(req),
-        userAgent: req.get('User-Agent'),
+        userAgent: logger.getUserAgent(req),
         method: req.method,
         url: req.originalUrl
       }).catch(console.error);
@@ -297,7 +298,7 @@ router.post('/video-izleme-baslat', authMiddleware, function(req, res, next) {
       soru_no, 
       req.session.id,
       req.systemLogger.getClientIP(req),
-      req.get('User-Agent')
+      logger.getUserAgent(req)
     ],
     (err, result) => {
       if (err) {
@@ -319,7 +320,7 @@ router.post('/video-izleme-baslat', authMiddleware, function(req, res, next) {
           test_id, 
           soru_no,
           req.systemLogger.getClientIP(req),
-          req.get('User-Agent')
+          logger.getUserAgent(req)
         ],
         (err2) => {
           if (err2) {
@@ -460,7 +461,7 @@ router.post('/admin/giris', function(req, res, next) {
     actionCategory: 'auth',
     actionDescription: `Admin giriş denemesi - Kullanıcı: ${kullanici_adi}`,
     ipAddress: req.systemLogger.getClientIP(req),
-    userAgent: req.get('User-Agent'),
+    userAgent: logger.getUserAgent(req),
     method: req.method,
     url: req.originalUrl,
     requestData: { kullanici_adi }
@@ -480,7 +481,7 @@ router.post('/admin/giris', function(req, res, next) {
         actionCategory: 'auth',
         actionDescription: `Başarısız admin giriş denemesi - Kullanıcı: ${kullanici_adi}`,
         ipAddress: req.systemLogger.getClientIP(req),
-        userAgent: req.get('User-Agent'),
+        userAgent: logger.getUserAgent(req),
         method: req.method,
         url: req.originalUrl,
         requestData: { kullanici_adi }
@@ -618,7 +619,7 @@ router.post('/admin/ogrenci-ekle', adminAuthMiddleware, function(req, res, next)
             `Yeni öğrenci eklendi - Numara: ${numara}, Ad: ${ad} ${soyad}`,
             clientInfo.ip,
             clientInfo.port,
-            req.get('User-Agent')
+            logger.getUserAgent(req)
           ).catch(console.error);
           
           res.redirect('/admin/ogrenci-yonetimi?basari=' + encodeURIComponent('Öğrenci başarıyla eklendi!'));
@@ -659,7 +660,7 @@ router.post('/admin/ogrenci-sil/:id', adminAuthMiddleware, function(req, res, ne
             `Öğrenci silindi - Numara: ${ogrenci[0].numara}, Ad: ${ogrenci[0].ad} ${ogrenci[0].soyad}`,
             clientInfo.ip,
             clientInfo.port,
-            req.get('User-Agent')
+            logger.getUserAgent(req)
           ).catch(console.error);
           
           res.redirect('/admin/ogrenci-yonetimi?basari=' + encodeURIComponent('Öğrenci başarıyla silindi!'));
@@ -708,7 +709,7 @@ router.post('/admin/ogrenci-toplu-yukle', adminAuthMiddleware, upload.single('ex
           `Toplu öğrenci yükleme - Toplam: ${toplamKayit}, Başarılı: ${basariliEklenen}, Hatalı: ${hataliKayitlar.length}`,
           clientInfo.ip,
           clientInfo.port,
-          req.get('User-Agent')
+          logger.getUserAgent(req)
         ).catch(console.error);
         
         if (hataliKayitlar.length > 0) {
@@ -849,7 +850,7 @@ router.get('/admin/ogrenci-sablon-indir', adminAuthMiddleware, function(req, res
       actionCategory: 'student_management',
       actionDescription: 'Öğrenci Excel şablonu indirildi',
       ipAddress: req.systemLogger.getClientIP(req),
-      userAgent: req.get('User-Agent')
+      userAgent: logger.getUserAgent(req)
     }).catch(console.error);
     
   } catch (error) {
@@ -1007,7 +1008,7 @@ router.post('/admin/test-olustur', adminAuthMiddleware, function(req, res, next)
             `Test oluşturma başarısız - Kod: ${temizTestKodu}, Hata: ${err.message}`,
             clientInfo.ip,
             clientInfo.port,
-            req.get('User-Agent')
+            logger.getUserAgent(req)
           ).catch(console.error);
           
           return res.render('admin-test-olustur', {
@@ -1025,7 +1026,7 @@ router.post('/admin/test-olustur', adminAuthMiddleware, function(req, res, next)
           `Yeni test oluşturuldu - Kod: ${temizTestKodu}, Ad: ${test_adi}, Soru Sayısı: ${soru_sayisi}`,
           clientInfo.ip,
           clientInfo.port,
-          req.get('User-Agent')
+          logger.getUserAgent(req)
         ).catch(console.error);
         
         res.render('admin-test-olustur', {
@@ -1075,7 +1076,7 @@ router.post('/admin/test-ata', adminAuthMiddleware, function(req, res, next) {
         `Test atama başarısız - Öğrenci: ${ogrenci_numara}, Test: ${test_kodu}, Hata: ${err.message}`,
         clientInfo.ip,
         clientInfo.port,
-        req.get('User-Agent')
+        logger.getUserAgent(req)
       ).catch(console.error);
       
       return Ogrenci.tumunuGetir((err2, ogrenciler) => {
@@ -1099,7 +1100,7 @@ router.post('/admin/test-ata', adminAuthMiddleware, function(req, res, next) {
       `Test atandı - Öğrenci: ${ogrenci_numara}, Test: ${test_kodu.toUpperCase()}${ozelAd ? `, Özel Ad: "${ozelAd}"` : ''}`,
       clientInfo.ip,
       clientInfo.port,
-      req.get('User-Agent')
+      logger.getUserAgent(req)
     ).catch(console.error);
     
     // Başarılı atama mesajı
@@ -1550,7 +1551,7 @@ router.post('/admin/test-sonuclarini-guncelle', adminAuthMiddleware, function(re
                     `Test sonuçları güncellendi - Toplam: ${testler.length}, Başarılı: ${testler.length - hatalar.length}, Hatalı: ${hatalar.length}`,
                     clientInfo.ip,
                     clientInfo.port,
-                    req.get('User-Agent')
+                    logger.getUserAgent(req)
                   ).catch(console.error);
                   
                   res.json({
@@ -1580,7 +1581,7 @@ router.get('/sso/login', function(req, res, next) {
     actionCategory: 'auth',
     actionDescription: 'K12NET SSO giriş işlemi başlatıldı',
     ipAddress: req.systemLogger.getClientIP(req),
-    userAgent: req.get('User-Agent'),
+    userAgent: logger.getUserAgent(req),
     method: req.method,
     url: req.originalUrl
   }).catch(console.error);
@@ -1601,7 +1602,7 @@ router.get('/sso', async function(req, res, next) {
     actionCategory: 'auth',
     actionDescription: 'K12NET SSO callback alındı',
     ipAddress: req.systemLogger.getClientIP(req),
-    userAgent: req.get('User-Agent'),
+    userAgent: logger.getUserAgent(req),
     method: req.method,
     url: req.originalUrl,
     requestData: { hasCode: !!authorizationCode, hasError: !!error }
@@ -2128,7 +2129,7 @@ router.post('/admin/test-guncelle', adminAuthMiddleware, function(req, res, next
       actionCategory: 'test_management',
       actionDescription: `Test güncellendi - ID: ${test_id}, Test Adı: ${test_adi}`,
       ipAddress: req.systemLogger.getClientIP(req),
-      userAgent: req.get('User-Agent'),
+      userAgent: logger.getUserAgent(req),
       targetData: { test_id, test_adi, soru_sayisi }
     }).catch(console.error);
     
@@ -2184,7 +2185,7 @@ router.post('/admin/test-yeniden-degerlendir/:testId', adminAuthMiddleware, func
               actionCategory: 'test_management',
               actionDescription: `Test yeniden değerlendirildi - ${test.test_kodu} (${test.test_adi}) - ${guncellenenSayisi}/${toplamSonuc} sonuç güncellendi`,
               ipAddress: req.systemLogger.getClientIP(req),
-              userAgent: req.get('User-Agent'),
+              userAgent: logger.getUserAgent(req),
               targetData: { testId, test_kodu: test.test_kodu, guncellenenSayisi, toplamSonuc }
             }).catch(console.error);
             

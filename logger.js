@@ -78,8 +78,8 @@ class Logger {
       sessionId: req.session?.id,
       ipAddress: ip,
       clientPort: port,
-      userAgent: req.get('User-Agent'),
-      referer: req.get('Referer'),
+      userAgent: this.getUserAgent(req),
+      referer: (req && req.headers ? req.headers['referer'] || null : null),
       method: req.method,
       url: req.originalUrl,
       additionalData
@@ -99,8 +99,8 @@ class Logger {
       sessionId: req.session?.id,
       ipAddress: ip,
       clientPort: port,
-      userAgent: req.get('User-Agent'),
-      referer: req.get('Referer'),
+      userAgent: this.getUserAgent(req),
+      referer: (req && req.headers ? req.headers['referer'] || null : null),
       method: req.method,
       url: req.originalUrl,
       additionalData
@@ -120,7 +120,7 @@ class Logger {
       sessionId: req.session?.id,
       ipAddress: ip,
       clientPort: port,
-      userAgent: req.get('User-Agent'),
+      userAgent: this.getUserAgent(req),
       requestData: { questionNumber, selectedAnswer },
       additionalData
     });
@@ -139,7 +139,7 @@ class Logger {
       sessionId: req.session?.id,
       ipAddress: ip,
       clientPort: port,
-      userAgent: req.get('User-Agent'),
+      userAgent: this.getUserAgent(req),
       requestData: { questionNumber },
       additionalData
     });
@@ -157,8 +157,8 @@ class Logger {
       sessionId: req.session?.id,
       ipAddress: ip,
       clientPort: port,
-      userAgent: req.get('User-Agent'),
-      referer: req.get('Referer'),
+      userAgent: this.getUserAgent(req),
+      referer: (req && req.headers ? req.headers['referer'] || null : null),
       method: req.method,
       url: req.originalUrl,
       additionalData
@@ -178,8 +178,8 @@ class Logger {
       sessionId: req.session?.id,
       ipAddress: ip,
       clientPort: port,
-      userAgent: req.get('User-Agent'),
-      referer: req.get('Referer'),
+      userAgent: this.getUserAgent(req),
+      referer: req && req.headers ? req.headers['referer'] || null : null,
       method: req.method,
       url: req.originalUrl,
       additionalData
@@ -210,7 +210,7 @@ class Logger {
       errorMessage: error.stack || error.toString(),
       ipAddress: ip,
       clientPort: port,
-      userAgent: req ? req.get('User-Agent') : null,
+      userAgent: req ? this.getUserAgent(req) : null,
       method: req ? req.method : null,
       url: req ? req.originalUrl : null,
       additionalData: {
@@ -234,6 +234,11 @@ class Logger {
   }
 
   getClientIPInfo(req) {
+    // Güvenlik kontrolü
+    if (!req || !req.headers) {
+      return { ip: '127.0.0.1', port: null };
+    }
+
     let ip = req.ip || 
              req.connection?.remoteAddress || 
              req.socket?.remoteAddress ||
@@ -275,6 +280,14 @@ class Logger {
     }
 
     return { ip, port };
+  }
+
+  // Güvenli User-Agent alma fonksiyonu
+  getUserAgent(req) {
+    if (!req || !req.headers) {
+      return 'Unknown';
+    }
+    return req.headers['user-agent'] || 'Unknown';
   }
 
   getAuthDescription(action) {
