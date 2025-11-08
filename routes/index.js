@@ -5,6 +5,7 @@ var Test = require('../models/Test');
 var Admin = require('../models/Admin');
 var authMiddleware = require('../middleware/auth');
 var K12NetSSO = require('../utils/K12NetSSO');
+var logger = require('../logger');
 var multer = require('multer');
 var xlsx = require('xlsx');
 var path = require('path');
@@ -610,16 +611,15 @@ router.post('/admin/ogrenci-ekle', adminAuthMiddleware, function(req, res, next)
           if (err) return next(err);
           
           // Log kaydet
-          req.systemLogger.log({
-            userType: 'admin',
-            userId: req.session.admin.id,
-            actionType: 'student_create',
-            actionCategory: 'student_management',
-            actionDescription: `Yeni öğrenci eklendi - Numara: ${numara}, Ad: ${ad} ${soyad}`,
-            ipAddress: req.systemLogger.getClientIP(req),
-            userAgent: req.get('User-Agent'),
-            targetData: { numara, ad, soyad, email }
-          }).catch(console.error);
+          const clientInfo = logger.getClientIPInfo(req);
+          logger.logAdminAction(
+            'student_create',
+            req.session.admin.id,
+            `Yeni öğrenci eklendi - Numara: ${numara}, Ad: ${ad} ${soyad}`,
+            clientInfo.ip,
+            clientInfo.port,
+            req.get('User-Agent')
+          ).catch(console.error);
           
           res.redirect('/admin/ogrenci-yonetimi?basari=' + encodeURIComponent('Öğrenci başarıyla eklendi!'));
         }
@@ -652,16 +652,15 @@ router.post('/admin/ogrenci-sil/:id', adminAuthMiddleware, function(req, res, ne
           if (err) return next(err);
           
           // Log kaydet
-          req.systemLogger.log({
-            userType: 'admin',
-            userId: req.session.admin.id,
-            actionType: 'student_delete',
-            actionCategory: 'student_management',
-            actionDescription: `Öğrenci silindi - Numara: ${ogrenci[0].numara}, Ad: ${ogrenci[0].ad} ${ogrenci[0].soyad}`,
-            ipAddress: req.systemLogger.getClientIP(req),
-            userAgent: req.get('User-Agent'),
-            targetData: ogrenci[0]
-          }).catch(console.error);
+          const clientInfo = logger.getClientIPInfo(req);
+          logger.logAdminAction(
+            'student_delete',
+            req.session.admin.id,
+            `Öğrenci silindi - Numara: ${ogrenci[0].numara}, Ad: ${ogrenci[0].ad} ${ogrenci[0].soyad}`,
+            clientInfo.ip,
+            clientInfo.port,
+            req.get('User-Agent')
+          ).catch(console.error);
           
           res.redirect('/admin/ogrenci-yonetimi?basari=' + encodeURIComponent('Öğrenci başarıyla silindi!'));
         }
@@ -702,16 +701,15 @@ router.post('/admin/ogrenci-toplu-yukle', adminAuthMiddleware, upload.single('ex
         fs.unlinkSync(req.file.path); // Dosyayı sil
         
         // Log kaydet
-        req.systemLogger.log({
-          userType: 'admin',
-          userId: req.session.admin.id,
-          actionType: 'bulk_student_upload',
-          actionCategory: 'student_management',
-          actionDescription: `Toplu öğrenci yükleme - Toplam: ${toplamKayit}, Başarılı: ${basariliEklenen}, Hatalı: ${hataliKayitlar.length}`,
-          ipAddress: req.systemLogger.getClientIP(req),
-          userAgent: req.get('User-Agent'),
-          targetData: { toplamKayit, basariliEklenen, hataliKayitSayisi: hataliKayitlar.length }
-        }).catch(console.error);
+        const clientInfo = logger.getClientIPInfo(req);
+        logger.logAdminAction(
+          'bulk_student_upload',
+          req.session.admin.id,
+          `Toplu öğrenci yükleme - Toplam: ${toplamKayit}, Başarılı: ${basariliEklenen}, Hatalı: ${hataliKayitlar.length}`,
+          clientInfo.ip,
+          clientInfo.port,
+          req.get('User-Agent')
+        ).catch(console.error);
         
         if (hataliKayitlar.length > 0) {
           const hataMesaji = `${basariliEklenen} öğrenci eklendi. ${hataliKayitlar.length} kayıt hatalı: ${hataliKayitlar.join(', ')}`;
@@ -1001,12 +999,34 @@ router.post('/admin/test-olustur', adminAuthMiddleware, function(req, res, next)
       // Temizlenmiş kodu kullan
       Test.testOlustur(temizTestKodu, test_adi, soru_sayisi, cevaplar, videolar, (err, testId) => {
         if (err) {
+          // Hata logla
+          const clientInfo = logger.getClientIPInfo(req);
+          logger.logAdminAction(
+            'test_create_failed',
+            req.session.admin.id,
+            `Test oluşturma başarısız - Kod: ${temizTestKodu}, Hata: ${err.message}`,
+            clientInfo.ip,
+            clientInfo.port,
+            req.get('User-Agent')
+          ).catch(console.error);
+          
           return res.render('admin-test-olustur', {
             admin: req.session.admin,
             hata: 'Test oluşturulamadı: ' + err.message,
             basari: null
           });
         }
+        
+        // Başarı logla
+        const clientInfo = logger.getClientIPInfo(req);
+        logger.logAdminAction(
+          'test_create',
+          req.session.admin.id,
+          `Yeni test oluşturuldu - Kod: ${temizTestKodu}, Ad: ${test_adi}, Soru Sayısı: ${soru_sayisi}`,
+          clientInfo.ip,
+          clientInfo.port,
+          req.get('User-Agent')
+        ).catch(console.error);
         
         res.render('admin-test-olustur', {
           admin: req.session.admin,
@@ -1047,6 +1067,17 @@ router.post('/admin/test-ata', adminAuthMiddleware, function(req, res, next) {
   
   Test.testAtaKodlarla(ogrenci_numara, test_kodu, ozelAd, (err) => {
     if (err) {
+      // Hata logla
+      const clientInfo = logger.getClientIPInfo(req);
+      logger.logAdminAction(
+        'test_assign_failed',
+        req.session.admin.id,
+        `Test atama başarısız - Öğrenci: ${ogrenci_numara}, Test: ${test_kodu}, Hata: ${err.message}`,
+        clientInfo.ip,
+        clientInfo.port,
+        req.get('User-Agent')
+      ).catch(console.error);
+      
       return Ogrenci.tumunuGetir((err2, ogrenciler) => {
         Test.tumTestleriGetir((err3, testler) => {
           res.render('admin-test-ata', {
@@ -1059,6 +1090,17 @@ router.post('/admin/test-ata', adminAuthMiddleware, function(req, res, next) {
         });
       });
     }
+    
+    // Başarı logla
+    const clientInfo = logger.getClientIPInfo(req);
+    logger.logAdminAction(
+      'test_assign',
+      req.session.admin.id,
+      `Test atandı - Öğrenci: ${ogrenci_numara}, Test: ${test_kodu.toUpperCase()}${ozelAd ? `, Özel Ad: "${ozelAd}"` : ''}`,
+      clientInfo.ip,
+      clientInfo.port,
+      req.get('User-Agent')
+    ).catch(console.error);
     
     // Başarılı atama mesajı
     const basariMesaji = ozelAd 
@@ -1291,7 +1333,7 @@ router.get('/admin/ogrenci/:id', adminAuthMiddleware, function(req, res, next) {
           res.render('admin-ogrenci-detay', {
             admin: req.session.admin,
             ogrenci: ogrenci,
-            testler: testResults,
+            testSonuclari: testResults,
             istatistikler: {
               toplamTest,
               tamamlanan,
@@ -1500,6 +1542,17 @@ router.post('/admin/test-sonuclarini-guncelle', adminAuthMiddleware, function(re
                 
                 // Son test işlendiyse sonucu döndür
                 if (tamamlanan === testler.length) {
+                  // İşlem tamamlandı, log kaydet
+                  const clientInfo = logger.getClientIPInfo(req);
+                  logger.logAdminAction(
+                    'test_results_updated',
+                    req.session.admin.id,
+                    `Test sonuçları güncellendi - Toplam: ${testler.length}, Başarılı: ${testler.length - hatalar.length}, Hatalı: ${hatalar.length}`,
+                    clientInfo.ip,
+                    clientInfo.port,
+                    req.get('User-Agent')
+                  ).catch(console.error);
+                  
                   res.json({
                     success: true,
                     message: `${testler.length - hatalar.length} test sonucu güncellendi.`,
@@ -1958,10 +2011,21 @@ router.get('/admin/ogrenci-detay/:id', adminAuthMiddleware, function(req, res, n
           testResults = [];
         }
         
+        // İstatistikleri hesapla
+        const istatistikler = {
+          toplamTest: testResults.length,
+          tamamlananTest: testResults.filter(t => t.puan !== null).length,
+          ortalamaPuan: testResults.length > 0 ? 
+            Math.round(testResults.reduce((sum, t) => sum + (t.puan || 0), 0) / testResults.length) : 0,
+          enYuksekPuan: testResults.length > 0 ? 
+            Math.max(...testResults.map(t => t.puan || 0)) : 0
+        };
+        
         res.render('admin-ogrenci-detay', {
           admin: req.session.admin,
           ogrenci: ogrenci,
           testSonuclari: testResults,
+          istatistikler: istatistikler,
           hata: req.query.hata || null,
           basari: req.query.basari || null
         });
