@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Ata - Admin Panel</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f0f2f5;
+      min-height: 100vh;
+    }
+    
+    .header {
+      background: linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #7e22ce 100%);
+      color: white;
+      padding: 20px 0;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    .header-content {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .btn-back {
+      background: rgba(255,255,255,0.2);
+      color: white;
+      border: 2px solid white;
+      padding: 10px 20px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+    
+    .btn-back:hover {
+      background: white;
+      color: #7e22ce;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 30px auto;
+      padding: 0 30px;
+    }
+    
+    .form-card {
+      background: white;
+      border-radius: 15px;
+      padding: 40px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+      margin-bottom: 30px;
+    }
+    
+    .form-title {
+      font-size: 28px;
+      font-weight: 700;
+      color: #333;
+      margin-bottom: 10px;
+    }
+    
+    .form-subtitle {
+      color: #666;
+      margin-bottom: 30px;
+      font-size: 14px;
+    }
+    
+    .alert {
+      padding: 15px 20px;
+      border-radius: 10px;
+      margin-bottom: 25px;
+      font-weight: 500;
+    }
+    
+    .alert-success {
+      background: #d4edda;
+      color: #155724;
+      border-left: 4px solid #28a745;
+    }
+    
+    .alert-error {
+      background: #f8d7da;
+      color: #721c24;
+      border-left: 4px solid #dc3545;
+    }
+    
+    .form-group {
+      margin-bottom: 25px;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 10px;
+      color: #444;
+      font-weight: 600;
+      font-size: 15px;
+    }
+    
+    .form-group select,
+    .form-group input {
+      width: 100%;
+      padding: 15px;
+      border: 2px solid #e0e0e0;
+      border-radius: 10px;
+      font-size: 16px;
+      transition: all 0.3s;
+      background: #f8f9fa;
+      font-family: 'Courier New', monospace;
+      font-weight: 600;
+    }
+    
+    .form-group select:focus,
+    .form-group input:focus {
+      outline: none;
+      border-color: #7e22ce;
+      background: white;
+      box-shadow: 0 0 0 3px rgba(126, 34, 206, 0.1);
+    }
+    
+    .form-group input::placeholder {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      font-weight: 400;
+      color: #aaa;
+    }
+    
+    .help-text {
+      font-size: 12px;
+      color: #888;
+      margin-top: 5px;
+    }
+    
+    .kontrol-basarili {
+      color: #28a745 !important;
+      font-weight: 600;
+    }
+    
+    .kontrol-hata {
+      color: #dc3545 !important;
+      font-weight: 600;
+    }
+    
+    .kontrol-bekliyor {
+      color: #ffc107 !important;
+      font-weight: 600;
+    }
+    
+    .input-basarili {
+      border-color: #28a745 !important;
+      background: #f0fff4 !important;
+    }
+    
+    .input-hata {
+      border-color: #dc3545 !important;
+      background: #fff5f5 !important;
+    }
+    
+    .btn-submit {
+      width: 100%;
+      padding: 18px;
+      background: linear-gradient(135deg, #1e3c72 0%, #7e22ce 100%);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 18px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    .btn-submit:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(126, 34, 206, 0.3);
+    }
+    
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+      gap: 25px;
+    }
+    
+    .info-card {
+      background: white;
+      border-radius: 15px;
+      padding: 25px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+    }
+    
+    .info-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #333;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #f0f0f0;
+    }
+    
+    .info-list {
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    
+    .info-item {
+      padding: 12px 15px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      border-left: 3px solid #7e22ce;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .info-item:last-child {
+      margin-bottom: 0;
+    }
+    
+    .item-name {
+      font-weight: 600;
+      color: #333;
+      font-size: 14px;
+    }
+    
+    .item-detail {
+      color: #666;
+      font-size: 13px;
+    }
+    
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 5px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    
+    .badge-blue {
+      background: #e3f2fd;
+      color: #1976d2;
+    }
+    
+    .badge-green {
+      background: #e8f5e9;
+      color: #388e3c;
+    }
+    
+    .section-divider {
+      margin: 40px 0;
+      text-align: center;
+      position: relative;
+    }
+    
+    .section-divider::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: #e0e0e0;
+    }
+    
+    .section-divider span {
+      background: #f0f2f5;
+      padding: 0 20px;
+      position: relative;
+      color: #999;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-content">
+      <h1>📤 Test Ata</h1>
+      <a href="/admin/dashboard" class="btn-back">← Dashboard'a Dön</a>
+    </div>
+  </div>
+  
+  <div class="container">
+    <div class="form-card">
+      <div class="form-title">Öğrenciye Test Ata</div>
+      <div class="form-subtitle">Bir öğrenci seçip test atayabilirsiniz.</div>
+      
+      <% if (basari) { %>
+        <div class="alert alert-success">
+          ✅ <%= basari %>
+        </div>
+      <% } %>
+      
+      <% if (hata) { %>
+        <div class="alert alert-error">
+          ⚠️ <%= hata %>
+        </div>
+      <% } %>
+      
+      <form method="POST" action="/admin/test-ata" id="testAtaForm">
+        <div class="form-group">
+          <label for="ogrenci_numara">Öğrenci Numarası *</label>
+          <input 
+            type="text" 
+            id="ogrenci_numara" 
+            name="ogrenci_numara" 
+            placeholder="Örn: 1001"
+            required
+            autocomplete="off"
+          >
+          <div class="help-text" id="ogrenci_durum">
+            Öğrencinin numarasını girin. Aşağıdaki listeden kontrol edebilirsiniz.
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label for="test_kodu">Test Kodu *</label>
+          <input 
+            type="text" 
+            id="test_kodu" 
+            name="test_kodu" 
+            placeholder="Örn: MAT2024-001"
+            required
+            autocomplete="off"
+            style="text-transform: uppercase;"
+          >
+          <div class="help-text" id="test_durum">
+            Test havuzundaki test kodunu girin. Aşağıdaki listeden kontrol edebilirsiniz. (Büyük/küçük harf duyarsız)
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label for="ozel_test_adi">Öğrenciye Özel Test Adı (Opsiyonel)</label>
+          <input 
+            type="text" 
+            id="ozel_test_adi" 
+            name="ozel_test_adi" 
+            placeholder="Örn: Hafta Sonu Deneme Sınavı"
+            maxlength="255"
+            style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-weight: 400;"
+          >
+          <div class="help-text">
+            Boş bırakırsanız test havuzundaki orijinal ad kullanılır. Her öğrenci için farklı ad girebilirsiniz.
+          </div>
+        </div>
+        
+        <button type="submit" class="btn-submit">
+          ✨ Testi Ata
+        </button>
+      </form>
+    </div>
+    
+    <div class="section-divider">
+      <span>MEVCUT LİSTELER</span>
+    </div>
+    
+    <div class="info-grid">
+      <div class="info-card">
+        <div class="info-title">👥 Öğrenci Listesi (<%= ogrenciler.length %>)</div>
+        <div class="info-list">
+          <% if (ogrenciler.length === 0) { %>
+            <div style="padding: 20px; text-align: center; color: #999;">
+              Henüz öğrenci yok
+            </div>
+          <% } else { %>
+            <% ogrenciler.forEach(function(ogrenci) { %>
+              <div class="info-item">
+                <div>
+                  <div class="item-name"><%= ogrenci.ad %> <%= ogrenci.soyad %></div>
+                  <div class="item-detail">📋 <strong><%= ogrenci.numara %></strong></div>
+                </div>
+              </div>
+            <% }); %>
+          <% } %>
+        </div>
+      </div>
+      
+      <div class="info-card">
+        <div class="info-title">📝 Test Havuzu (<%= testler.length %>)</div>
+        <div class="info-list">
+          <% if (testler.length === 0) { %>
+            <div style="padding: 20px; text-align: center; color: #999;">
+              Henüz test yok
+            </div>
+          <% } else { %>
+            <% testler.forEach(function(test) { %>
+              <div class="info-item">
+                <div>
+                  <div class="item-name"><%= test.test_adi %></div>
+                  <div class="item-detail">🔑 <strong><%= test.test_kodu %></strong></div>
+                </div>
+                <span class="badge badge-green"><%= test.soru_sayisi %> Soru</span>
+              </div>
+            <% }); %>
+          <% } %>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    let ogrenciKontrolTimer;
+    let testKontrolTimer;
+    let ogrenciGecerli = false;
+    let testGecerli = false;
+    
+    const ogrenciInput = document.getElementById('ogrenci_numara');
+    const testKoduInput = document.getElementById('test_kodu');
+    const ogrenciDurum = document.getElementById('ogrenci_durum');
+    const testDurum = document.getElementById('test_durum');
+    const form = document.getElementById('testAtaForm');
+    const submitBtn = document.querySelector('.btn-submit');
+    
+    // Öğrenci numarası kontrolü
+    ogrenciInput.addEventListener('input', function() {
+      const numara = this.value.trim();
+      
+      if (!numara) {
+        ogrenciGecerli = false;
+        ogrenciDurum.textContent = 'Öğrencinin numarasını girin. Aşağıdaki listeden kontrol edebilirsiniz.';
+        ogrenciDurum.className = 'help-text';
+        ogrenciInput.classList.remove('input-basarili', 'input-hata');
+        return;
+      }
+      
+      clearTimeout(ogrenciKontrolTimer);
+      
+      ogrenciGecerli = false;
+      ogrenciDurum.textContent = '⏳ Kontrol ediliyor...';
+      ogrenciDurum.className = 'help-text kontrol-bekliyor';
+      ogrenciInput.classList.remove('input-basarili', 'input-hata');
+      
+      ogrenciKontrolTimer = setTimeout(() => {
+        fetch('/admin/ogrenci-kontrol?numara=' + encodeURIComponent(numara))
+          .then(res => res.json())
+          .then(data => {
+            if (data.bulundu) {
+              ogrenciGecerli = true;
+              ogrenciDurum.textContent = `✅ ${data.ad} ${data.soyad}`;
+              ogrenciDurum.className = 'help-text kontrol-basarili';
+              ogrenciInput.classList.remove('input-hata');
+              ogrenciInput.classList.add('input-basarili');
+            } else {
+              ogrenciGecerli = false;
+              ogrenciDurum.textContent = '❌ Bu numarada öğrenci bulunamadı!';
+              ogrenciDurum.className = 'help-text kontrol-hata';
+              ogrenciInput.classList.remove('input-basarili');
+              ogrenciInput.classList.add('input-hata');
+            }
+          })
+          .catch(err => {
+            console.error('Öğrenci kontrol hatası:', err);
+            ogrenciGecerli = false;
+            ogrenciDurum.textContent = '⚠️ Kontrol edilemedi';
+            ogrenciDurum.className = 'help-text kontrol-hata';
+          });
+      }, 500);
+    });
+    
+    // Test kodu kontrolü
+    testKoduInput.addEventListener('input', function() {
+      const kod = this.value.trim().toUpperCase();
+      
+      if (!kod) {
+        testGecerli = false;
+        testDurum.textContent = 'Test havuzundaki test kodunu girin. Aşağıdaki listeden kontrol edebilirsiniz.';
+        testDurum.className = 'help-text';
+        testKoduInput.classList.remove('input-basarili', 'input-hata');
+        return;
+      }
+      
+      clearTimeout(testKontrolTimer);
+      
+      testGecerli = false;
+      testDurum.textContent = '⏳ Kontrol ediliyor...';
+      testDurum.className = 'help-text kontrol-bekliyor';
+      testKoduInput.classList.remove('input-basarili', 'input-hata');
+      
+      testKontrolTimer = setTimeout(() => {
+        fetch('/admin/test-havuz-kontrol?kod=' + encodeURIComponent(kod))
+          .then(res => res.json())
+          .then(data => {
+            if (data.bulundu) {
+              testGecerli = true;
+              testDurum.textContent = `✅ ${data.testAdi}`;
+              testDurum.className = 'help-text kontrol-basarili';
+              testKoduInput.classList.remove('input-hata');
+              testKoduInput.classList.add('input-basarili');
+            } else {
+              testGecerli = false;
+              testDurum.textContent = '❌ Bu kodda test bulunamadı!';
+              testDurum.className = 'help-text kontrol-hata';
+              testKoduInput.classList.remove('input-basarili');
+              testKoduInput.classList.add('input-hata');
+            }
+          })
+          .catch(err => {
+            console.error('Test kontrol hatası:', err);
+            testGecerli = false;
+            testDurum.textContent = '⚠️ Kontrol edilemedi';
+            testDurum.className = 'help-text kontrol-hata';
+          });
+      }, 500);
+    });
+    
+    // Form gönderilirken kontrol
+    form.addEventListener('submit', function(e) {
+      if (!ogrenciGecerli) {
+        e.preventDefault();
+        alert('Lütfen geçerli bir öğrenci numarası girin!');
+        ogrenciInput.focus();
+        return;
+      }
+      
+      if (!testGecerli) {
+        e.preventDefault();
+        alert('Lütfen geçerli bir test kodu girin!');
+        testKoduInput.focus();
+        return;
+      }
+    });
+  </script>
+</body>
+</html>

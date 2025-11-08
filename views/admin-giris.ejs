@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Girişi - Sanal Optik Form</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #7e22ce 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    
+    .login-container {
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      padding: 50px 40px;
+      width: 100%;
+      max-width: 450px;
+      animation: slideUp 0.5s ease;
+    }
+    
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .login-header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    
+    .admin-icon {
+      width: 80px;
+      height: 80px;
+      background: linear-gradient(135deg, #1e3c72 0%, #7e22ce 100%);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 20px;
+      font-size: 40px;
+      color: white;
+    }
+    
+    .login-header h1 {
+      color: #333;
+      font-size: 28px;
+      margin-bottom: 8px;
+    }
+    
+    .login-header p {
+      color: #666;
+      font-size: 14px;
+    }
+    
+    .form-group {
+      margin-bottom: 25px;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      color: #444;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    
+    .form-group input {
+      width: 100%;
+      padding: 15px;
+      border: 2px solid #e0e0e0;
+      border-radius: 10px;
+      font-size: 16px;
+      transition: all 0.3s;
+      background: #f8f9fa;
+    }
+    
+    .form-group input:focus {
+      outline: none;
+      border-color: #7e22ce;
+      background: white;
+      box-shadow: 0 0 0 3px rgba(126, 34, 206, 0.1);
+    }
+    
+    .btn-login {
+      width: 100%;
+      padding: 16px;
+      background: linear-gradient(135deg, #1e3c72 0%, #7e22ce 100%);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      margin-top: 10px;
+    }
+    
+    .btn-login:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(126, 34, 206, 0.3);
+    }
+    
+    .error-message {
+      background: #fee;
+      color: #c33;
+      padding: 12px 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      border-left: 4px solid #c33;
+      font-size: 14px;
+    }
+    
+    .divider {
+      text-align: center;
+      margin: 30px 0;
+      position: relative;
+    }
+    
+    .divider::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: #e0e0e0;
+    }
+    
+    .divider span {
+      background: white;
+      padding: 0 15px;
+      position: relative;
+      color: #999;
+      font-size: 14px;
+    }
+    
+    .link-student {
+      display: block;
+      text-align: center;
+      color: #7e22ce;
+      text-decoration: none;
+      font-weight: 600;
+      padding: 12px;
+      border: 2px solid #7e22ce;
+      border-radius: 10px;
+      transition: all 0.3s;
+    }
+    
+    .link-student:hover {
+      background: #7e22ce;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <div class="login-header">
+      <div class="admin-icon">🔐</div>
+      <h1>Admin Paneli</h1>
+      <p>Yönetim paneline giriş yapın</p>
+    </div>
+    
+    <% if (hata) { %>
+      <div class="error-message">
+        <strong>⚠️ Hata!</strong> <%= hata %>
+      </div>
+    <% } %>
+    
+    <form method="POST" action="/admin/giris">
+      <div class="form-group">
+        <label for="kullanici_adi">Kullanıcı Adı</label>
+        <input 
+          type="text" 
+          id="kullanici_adi" 
+          name="kullanici_adi" 
+          placeholder="Kullanıcı adınızı girin"
+          required
+          autofocus
+        >
+      </div>
+      
+      <div class="form-group">
+        <label for="sifre">Şifre</label>
+        <input 
+          type="password" 
+          id="sifre" 
+          name="sifre" 
+          placeholder="Şifrenizi girin"
+          required
+        >
+      </div>
+      
+      <button type="submit" class="btn-login">
+        🔓 Giriş Yap
+      </button>
+    </form>
+    
+    <div class="divider">
+      <span>veya</span>
+    </div>
+    
+    <a href="/giris" class="link-student">👤 Öğrenci Girişi</a>
+  </div>
+</body>
+</html>

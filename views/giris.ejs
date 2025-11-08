@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Öğrenci Girişi - Sanal Optik Form</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+    
+    .login-container {
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      padding: 40px;
+      width: 100%;
+      max-width: 420px;
+    }
+    
+    .login-header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    
+    .login-header h1 {
+      color: #333;
+      font-size: 28px;
+      margin-bottom: 10px;
+    }
+    
+    .login-header p {
+      color: #666;
+      font-size: 14px;
+    }
+    
+    .form-group {
+      margin-bottom: 20px;
+    }
+    
+    .form-group label {
+      display: block;
+      color: #333;
+      font-weight: 600;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+    
+    .form-group input {
+      width: 100%;
+      padding: 12px 15px;
+      border: 2px solid #e0e0e0;
+      border-radius: 10px;
+      font-size: 16px;
+      transition: all 0.3s;
+    }
+    
+    .form-group input:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    
+    .btn-login {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    
+    .btn-login:hover {
+      transform: translateY(-2px);
+    }
+    
+    .btn-sso {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s;
+      margin-top: 15px;
+      text-decoration: none;
+      display: block;
+      text-align: center;
+    }
+    
+    .btn-sso:hover {
+      transform: translateY(-2px);
+    }
+    
+    .divider {
+      text-align: center;
+      margin: 20px 0;
+      position: relative;
+    }
+    
+    .divider::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: #e0e0e0;
+    }
+    
+    .divider span {
+      background: white;
+      padding: 0 15px;
+      color: #999;
+      font-size: 14px;
+      position: relative;
+      z-index: 1;
+    }
+    
+    .error-message {
+      background: #fee;
+      color: #c33;
+      padding: 12px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      font-size: 14px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <div class="login-header">
+      <h1>🎓 Sanal Optik Form</h1>
+      <p>Öğrenci Giriş Paneli</p>
+    </div>
+    
+    <% if (hata) { %>
+      <div class="error-message">
+        <%= hata %>
+      </div>
+    <% } %>
+    
+    <form method="POST" action="/giris">
+      <div class="form-group">
+        <label for="numara">Öğrenci Numarası</label>
+        <input type="text" id="numara" name="numara" required placeholder="Öğrenci numaranızı girin">
+      </div>
+      
+      <div class="form-group">
+        <label for="sifre">Şifre</label>
+        <input type="password" id="sifre" name="sifre" required placeholder="Şifrenizi girin">
+      </div>
+      
+      <button type="submit" class="btn-login">Giriş Yap</button>
+    </form>
+    
+    <div class="divider">
+      <span>VEYA</span>
+    </div>
+    
+    <a href="/sso/login" class="btn-sso">
+      🔐 K12NET ile Giriş Yap
+    </a>
+  </div>
+</body>
+</html>

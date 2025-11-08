@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>İşlem Kayıtları - Admin Panel</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f0f2f5;
+      min-height: 100vh;
+    }
+    
+    .header {
+      background: linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #7e22ce 100%);
+      color: white;
+      padding: 20px 0;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    .header-content {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 0 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .btn-back {
+      background: rgba(255,255,255,0.2);
+      color: white;
+      border: 2px solid white;
+      padding: 10px 20px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+    
+    .btn-back:hover {
+      background: white;
+      color: #7e22ce;
+    }
+    
+    .container {
+      max-width: 1400px;
+      margin: 30px auto;
+      padding: 0 30px;
+    }
+    
+    .filters-card {
+      background: white;
+      border-radius: 15px;
+      padding: 25px;
+      margin-bottom: 25px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+    }
+    
+    .filters-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #333;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .filters-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .filter-label {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 5px;
+      font-weight: 600;
+    }
+    
+    .filter-input, .filter-select {
+      padding: 10px;
+      border: 2px solid #e9ecef;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: border-color 0.3s;
+    }
+    
+    .filter-input:focus, .filter-select:focus {
+      outline: none;
+      border-color: #7e22ce;
+    }
+    
+    .filter-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+    
+    .btn {
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: none;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    
+    .btn-secondary {
+      background: #6c757d;
+      color: white;
+    }
+    
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    }
+    
+    .logs-card {
+      background: white;
+      border-radius: 15px;
+      padding: 25px;
+      margin-bottom: 25px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+    }
+    
+    .logs-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 25px;
+      padding-bottom: 15px;
+      border-bottom: 2px solid #f0f0f0;
+    }
+    
+    .logs-title {
+      font-size: 24px;
+      font-weight: 700;
+      color: #333;
+    }
+    
+    .logs-stats {
+      display: flex;
+      gap: 20px;
+      font-size: 14px;
+      color: #666;
+    }
+    
+    .logs-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 20px;
+    }
+    
+    .logs-table th,
+    .logs-table td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid #e9ecef;
+    }
+    
+    .logs-table th {
+      background: #f8f9fa;
+      font-weight: 700;
+      color: #495057;
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+    
+    .logs-table td {
+      font-size: 14px;
+      vertical-align: top;
+    }
+    
+    .logs-table tr:hover {
+      background: #f8f9fa;
+    }
+    
+    .user-badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    
+    .user-badge.student {
+      background: #d4edda;
+      color: #155724;
+    }
+    
+    .user-badge.admin {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    
+    .user-badge.system {
+      background: #d1ecf1;
+      color: #0c5460;
+    }
+    
+    .category-badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    
+    .category-badge.auth { background: #fff3cd; color: #856404; }
+    .category-badge.test { background: #d4edda; color: #155724; }
+    .category-badge.answer { background: #d1ecf1; color: #0c5460; }
+    .category-badge.video { background: #e2e3e5; color: #383d41; }
+    .category-badge.admin { background: #f8d7da; color: #721c24; }
+    .category-badge.system { background: #e7e8ea; color: #495057; }
+    .category-badge.error { background: #f5c6cb; color: #721c24; }
+    .category-badge.security { background: #ffeaa7; color: #856404; }
+    
+    .ip-address {
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      color: #6c757d;
+    }
+    
+    .timestamp {
+      font-size: 12px;
+      color: #6c757d;
+      white-space: nowrap;
+    }
+    
+    .action-description {
+      max-width: 300px;
+      word-break: break-word;
+    }
+    
+    .user-info {
+      font-size: 12px;
+      color: #495057;
+    }
+    
+    .pagination {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+      margin-top: 25px;
+    }
+    
+    .pagination a,
+    .pagination span {
+      padding: 8px 12px;
+      border-radius: 6px;
+      text-decoration: none;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+    
+    .pagination a {
+      background: #e9ecef;
+      color: #495057;
+    }
+    
+    .pagination a:hover {
+      background: #7e22ce;
+      color: white;
+    }
+    
+    .pagination .current {
+      background: #7e22ce;
+      color: white;
+    }
+    
+    .pagination .disabled {
+      background: #f8f9fa;
+      color: #6c757d;
+      cursor: not-allowed;
+    }
+    
+    .no-logs {
+      text-align: center;
+      padding: 60px 20px;
+      color: #999;
+      font-size: 18px;
+    }
+    
+    .export-btn {
+      background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .export-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
+    }
+    
+    .log-details {
+      background: #f8f9fa;
+      padding: 10px;
+      border-radius: 6px;
+      margin-top: 5px;
+      font-size: 12px;
+      color: #6c757d;
+    }
+    
+    .toggle-details {
+      background: none;
+      border: none;
+      color: #7e22ce;
+      cursor: pointer;
+      font-size: 12px;
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-content">
+      <h1>📊 İşlem Kayıtları</h1>
+      <a href="/admin/dashboard" class="btn-back">← Dashboard'a Dön</a>
+    </div>
+  </div>
+  
+  <div class="container">
+    <!-- Filtreler -->
+    <div class="filters-card">
+      <div class="filters-title">
+        🔍 Filtreleme Seçenekleri
+      </div>
+      
+      <form method="GET" action="/admin/islem-kayitlari">
+        <div class="filters-grid">
+          <div class="filter-group">
+            <label class="filter-label">Kullanıcı Tipi</label>
+            <select name="user_type" class="filter-select">
+              <option value="">Tümü</option>
+              <option value="student" <%= filters.userType === 'student' ? 'selected' : '' %>>Öğrenci</option>
+              <option value="admin" <%= filters.userType === 'admin' ? 'selected' : '' %>>Admin</option>
+              <option value="system" <%= filters.userType === 'system' ? 'selected' : '' %>>Sistem</option>
+            </select>
+          </div>
+          
+          <div class="filter-group">
+            <label class="filter-label">İşlem Kategorisi</label>
+            <select name="action_category" class="filter-select">
+              <option value="">Tümü</option>
+              <option value="auth" <%= filters.actionCategory === 'auth' ? 'selected' : '' %>>Kimlik Doğrulama</option>
+              <option value="test" <%= filters.actionCategory === 'test' ? 'selected' : '' %>>Test İşlemleri</option>
+              <option value="answer" <%= filters.actionCategory === 'answer' ? 'selected' : '' %>>Cevap İşlemleri</option>
+              <option value="video" <%= filters.actionCategory === 'video' ? 'selected' : '' %>>Video İşlemleri</option>
+              <option value="admin" <%= filters.actionCategory === 'admin' ? 'selected' : '' %>>Admin İşlemleri</option>
+              <option value="system" <%= filters.actionCategory === 'system' ? 'selected' : '' %>>Sistem İşlemleri</option>
+              <option value="error" <%= filters.actionCategory === 'error' ? 'selected' : '' %>>Hatalar</option>
+              <option value="security" <%= filters.actionCategory === 'security' ? 'selected' : '' %>>Güvenlik</option>
+            </select>
+          </div>
+          
+          <div class="filter-group">
+            <label class="filter-label">Başlangıç Tarihi</label>
+            <input type="date" name="date_from" value="<%= filters.dateFrom %>" class="filter-input">
+          </div>
+          
+          <div class="filter-group">
+            <label class="filter-label">Bitiş Tarihi</label>
+            <input type="date" name="date_to" value="<%= filters.dateTo %>" class="filter-input">
+          </div>
+          
+          <div class="filter-group">
+            <label class="filter-label">Arama</label>
+            <input type="text" name="search" value="<%= filters.searchTerm %>" 
+                   placeholder="Açıklama, IP veya URL'de ara..." class="filter-input">
+          </div>
+          
+          <div class="filter-group">
+            <label class="filter-label">Sayfa Başına Kayıt</label>
+            <select name="limit" class="filter-select">
+              <option value="25" <%= pagination.limit === 25 ? 'selected' : '' %>>25</option>
+              <option value="50" <%= pagination.limit === 50 ? 'selected' : '' %>>50</option>
+              <option value="100" <%= pagination.limit === 100 ? 'selected' : '' %>>100</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="filter-actions">
+          <button type="submit" class="btn btn-primary">
+            🔍 Filtrele
+          </button>
+          <a href="/admin/islem-kayitlari" class="btn btn-secondary">
+            🔄 Temizle
+          </a>
+          <a href="/admin/islem-kayitlari/export" class="export-btn">
+            📤 Dışa Aktar
+          </a>
+        </div>
+      </form>
+    </div>
+    
+    <!-- Logs Listesi -->
+    <div class="logs-card">
+      <div class="logs-header">
+        <h2 class="logs-title">İşlem Kayıtları</h2>
+        <div class="logs-stats">
+          <span><strong><%= pagination.totalRecords %></strong> toplam kayıt</span>
+          <span>Sayfa <strong><%= pagination.currentPage %></strong> / <strong><%= pagination.totalPages %></strong></span>
+        </div>
+      </div>
+      
+      <% if (logs.length > 0) { %>
+        <table class="logs-table">
+          <thead>
+            <tr>
+              <th>Tarih/Saat</th>
+              <th>Kullanıcı</th>
+              <th>Kategori</th>
+              <th>İşlem</th>
+              <th>Açıklama</th>
+              <th>IP Adresi</th>
+              <th>Detaylar</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% logs.forEach(function(log, index) { 
+              let userDisplayName = 'Sistem';
+              if (log.user_type === 'student' && log.ogrenci_ad) {
+                userDisplayName = `${log.ogrenci_ad} ${log.ogrenci_soyad} (${log.ogrenci_numara})`;
+              } else if (log.user_type === 'admin' && log.admin_ad) {
+                userDisplayName = `${log.admin_ad} ${log.admin_soyad} (@${log.admin_kullanici})`;
+              }
+            %>
+              <tr>
+                <td class="timestamp">
+                  <%= new Date(log.created_at).toLocaleString('tr-TR', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                  }) %>
+                </td>
+                <td>
+                  <span class="user-badge <%= log.user_type %>"><%= log.user_type %></span>
+                  <div class="user-info"><%= userDisplayName %></div>
+                </td>
+                <td>
+                  <span class="category-badge <%= log.action_category %>"><%= log.action_category %></span>
+                </td>
+                <td style="font-family: monospace; font-size: 12px;">
+                  <%= log.action_type %>
+                </td>
+                <td class="action-description">
+                  <%= log.action_description %>
+                </td>
+                <td class="ip-address">
+                  <%= log.ip_address %>
+                </td>
+                <td>
+                  <% if (log.method || log.url || log.user_agent || log.error_message) { %>
+                    <button class="toggle-details" onclick="toggleDetails(<%= index %>)">
+                      Detayları Göster
+                    </button>
+                    <div id="details-<%= index %>" class="log-details" style="display: none;">
+                      <% if (log.method && log.url) { %>
+                        <div><strong>HTTP:</strong> <%= log.method %> <%= log.url %></div>
+                      <% } %>
+                      <% if (log.status_code) { %>
+                        <div><strong>Status:</strong> <%= log.status_code %></div>
+                      <% } %>
+                      <% if (log.response_time_ms) { %>
+                        <div><strong>Süre:</strong> <%= log.response_time_ms %>ms</div>
+                      <% } %>
+                      <% if (log.session_id) { %>
+                        <div><strong>Session:</strong> <%= log.session_id.substring(0, 8) %>...</div>
+                      <% } %>
+                      <% if (log.user_agent) { %>
+                        <div><strong>User Agent:</strong> <%= log.user_agent.substring(0, 100) %>...</div>
+                      <% } %>
+                      <% if (log.error_message) { %>
+                        <div style="color: #dc3545;"><strong>Hata:</strong> <%= log.error_message.substring(0, 200) %>...</div>
+                      <% } %>
+                    </div>
+                  <% } else { %>
+                    -
+                  <% } %>
+                </td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+        
+        <!-- Pagination -->
+        <div class="pagination">
+          <% if (pagination.hasPrev) { %>
+            <a href="?page=<%= pagination.currentPage - 1 %>&user_type=<%= filters.userType %>&action_category=<%= filters.actionCategory %>&date_from=<%= filters.dateFrom %>&date_to=<%= filters.dateTo %>&search=<%= filters.searchTerm %>&limit=<%= pagination.limit %>">
+              ← Önceki
+            </a>
+          <% } else { %>
+            <span class="disabled">← Önceki</span>
+          <% } %>
+          
+          <% for (let i = Math.max(1, pagination.currentPage - 2); i <= Math.min(pagination.totalPages, pagination.currentPage + 2); i++) { %>
+            <% if (i === pagination.currentPage) { %>
+              <span class="current"><%= i %></span>
+            <% } else { %>
+              <a href="?page=<%= i %>&user_type=<%= filters.userType %>&action_category=<%= filters.actionCategory %>&date_from=<%= filters.dateFrom %>&date_to=<%= filters.dateTo %>&search=<%= filters.searchTerm %>&limit=<%= pagination.limit %>">
+                <%= i %>
+              </a>
+            <% } %>
+          <% } %>
+          
+          <% if (pagination.hasNext) { %>
+            <a href="?page=<%= pagination.currentPage + 1 %>&user_type=<%= filters.userType %>&action_category=<%= filters.actionCategory %>&date_from=<%= filters.dateFrom %>&date_to=<%= filters.dateTo %>&search=<%= filters.searchTerm %>&limit=<%= pagination.limit %>">
+              Sonraki →
+            </a>
+          <% } else { %>
+            <span class="disabled">Sonraki →</span>
+          <% } %>
+        </div>
+      <% } else { %>
+        <div class="no-logs">
+          📭 Seçilen kriterlere uygun işlem kaydı bulunamadı.
+        </div>
+      <% } %>
+    </div>
+  </div>
+  
+  <script>
+    function toggleDetails(index) {
+      const details = document.getElementById('details-' + index);
+      const button = details.previousElementSibling;
+      
+      if (details.style.display === 'none') {
+        details.style.display = 'block';
+        button.textContent = 'Detayları Gizle';
+      } else {
+        details.style.display = 'none';
+        button.textContent = 'Detayları Göster';
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>İstatistikler - Admin Panel</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f0f2f5;
+      min-height: 100vh;
+    }
+    
+    .header {
+      background: linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #7e22ce 100%);
+      color: white;
+      padding: 20px 0;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    .header-content {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 0 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .btn-back {
+      background: rgba(255,255,255,0.2);
+      color: white;
+      border: 2px solid white;
+      padding: 10px 20px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+    
+    .btn-back:hover {
+      background: white;
+      color: #7e22ce;
+    }
+    
+    .container {
+      max-width: 1400px;
+      margin: 30px auto;
+      padding: 0 30px;
+    }
+    
+    .section-title {
+      font-size: 24px;
+      font-weight: 700;
+      color: #333;
+      margin-bottom: 20px;
+      padding-bottom: 15px;
+      border-bottom: 3px solid #7e22ce;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .table-card {
+      background: white;
+      border-radius: 15px;
+      padding: 30px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+      margin-bottom: 40px;
+      overflow-x: auto;
+    }
+    
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    
+    thead {
+      background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    }
+    
+    th {
+      padding: 15px 12px;
+      text-align: left;
+      font-weight: 700;
+      color: #444;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 2px solid #7e22ce;
+    }
+    
+    td {
+      padding: 15px 12px;
+      border-bottom: 1px solid #f0f0f0;
+      color: #555;
+      font-size: 14px;
+    }
+    
+    tbody tr {
+      transition: all 0.2s;
+    }
+    
+    tbody tr:hover {
+      background: #f8f9fa;
+    }
+    
+    .badge {
+      display: inline-block;
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    
+    .badge-success {
+      background: #d4edda;
+      color: #155724;
+    }
+    
+    .badge-warning {
+      background: #fff3cd;
+      color: #856404;
+    }
+    
+    .badge-info {
+      background: #d1ecf1;
+      color: #0c5460;
+    }
+    
+    .badge-danger {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    
+    .score-high {
+      color: #28a745;
+      font-weight: 700;
+    }
+    
+    .score-medium {
+      color: #ffc107;
+      font-weight: 700;
+    }
+    
+    .score-low {
+      color: #dc3545;
+      font-weight: 700;
+    }
+    
+    .text-center {
+      text-align: center;
+    }
+    
+    .text-right {
+      text-align: right;
+    }
+    
+    .no-data {
+      text-align: center;
+      padding: 40px;
+      color: #999;
+      font-size: 16px;
+    }
+    
+    .stat-number {
+      font-weight: 700;
+      color: #7e22ce;
+    }
+    
+    .btn-update {
+      background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      margin-bottom: 20px;
+    }
+    
+    .btn-update:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
+    }
+    
+    .btn-update:disabled {
+      background: #6c757d;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+    
+    .update-message {
+      padding: 10px 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      font-weight: 600;
+    }
+    
+    .update-success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    
+    .update-error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-content">
+      <h1>📈 Detaylı İstatistikler</h1>
+      <a href="/admin/dashboard" class="btn-back">← Dashboard'a Dön</a>
+    </div>
+  </div>
+  
+  <div class="container">
+    <!-- Test Sonuçlarını Güncelle Butonu -->
+    <button onclick="testSonuclariniGuncelle()" class="btn-update" id="updateBtn">
+      🔄 Test Sonuçlarını Yeniden Hesapla
+    </button>
+    <div id="updateMessage" style="display: none;"></div>
+    
+    <!-- Genel Sistem İstatistikleri -->
+    <div class="section-title">📊 Genel Sistem İstatistikleri</div>
+    <div class="stats-grid" style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 15px; margin-bottom: 30px;">
+      <div class="stat-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px; border-radius: 10px; text-align: center;">
+        <h3 style="margin-bottom: 8px; font-size: 14px; opacity: 0.9;">👥 Toplam Öğrenci</h3>
+        <div style="font-size: 24px; font-weight: 700;"><%= genelStats.toplamOgrenci || 0 %></div>
+      </div>
+      
+      <div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 15px; border-radius: 10px; text-align: center;">
+        <h3 style="margin-bottom: 8px; font-size: 14px; opacity: 0.9;">📝 Toplam Test</h3>
+        <div style="font-size: 24px; font-weight: 700;"><%= genelStats.toplamTest || 0 %></div>
+      </div>
+      
+      <div class="stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 15px; border-radius: 10px; text-align: center;">
+        <h3 style="margin-bottom: 8px; font-size: 14px; opacity: 0.9;">📈 Toplam Soru</h3>
+        <div style="font-size: 24px; font-weight: 700;"><%= genelStats.toplamSoru || 0 %></div>
+      </div>
+      
+      <div class="stat-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); color: white; padding: 15px; border-radius: 10px; text-align: center;">
+        <h3 style="margin-bottom: 8px; font-size: 14px; opacity: 0.9;">✅ Tamamlanan Test</h3>
+        <div style="font-size: 24px; font-weight: 700;"><%= genelStats.tamamlananTestler || 0 %></div>
+      </div>
+      
+      <div class="stat-card" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); color: white; padding: 15px; border-radius: 10px; text-align: center;">
+        <h3 style="margin-bottom: 8px; font-size: 14px; opacity: 0.9;">⏳ Devam Eden Test</h3>
+        <div style="font-size: 24px; font-weight: 700;"><%= genelStats.devamEdenTestler || 0 %></div>
+      </div>
+      
+      <div class="stat-card" style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); color: #333; padding: 15px; border-radius: 10px; text-align: center;">
+        <h3 style="margin-bottom: 8px; font-size: 14px; opacity: 0.8;">📊 Sistem Ortalaması</h3>
+        <div style="font-size: 24px; font-weight: 700;"><%= genelStats.sistemOrtalamasi ? parseFloat(genelStats.sistemOrtalamasi).toFixed(1) : '0.0' %></div>
+      </div>
+    </div>
+    
+    <!-- Öğrenci İstatistikleri -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+      <div class="section-title" style="margin-bottom: 0;">👥 Öğrenci İstatistikleri</div>
+      
+      <!-- Kompakt Öğrenci Arama -->
+      <div style="display: flex; gap: 10px; align-items: center;">
+        <label for="ogrenciNumara" style="font-weight: 600; color: #555; white-space: nowrap; font-size: 14px;">🔍 Öğrenci Ara:</label>
+        <input 
+          type="text" 
+          id="ogrenciNumara" 
+          placeholder="Numara girin" 
+          style="width: 150px; padding: 8px 12px; border: 2px solid #e1e5e9; border-radius: 6px; font-size: 14px; transition: border-color 0.3s;"
+          onkeypress="if(event.key==='Enter') ogrenciAra()"
+        >
+        <button 
+          onclick="ogrenciAra()" 
+          style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.3s; font-size: 14px; white-space: nowrap;"
+          onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 3px 10px rgba(102, 126, 234, 0.3)'"
+          onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'"
+        >
+          🔎 Ara
+        </button>
+      </div>
+    </div>
+    
+    <!-- Arama Mesajı -->
+    <div id="aramaMsg" style="display: none; margin-bottom: 15px; padding: 10px; border-radius: 6px; font-weight: 600;"></div>
+    
+    <div class="table-card">
+      <% if (ogrenciStats && ogrenciStats.length > 0) { %>
+        <table>
+          <thead>
+            <tr>
+              <th>Numara</th>
+              <th>Ad Soyad</th>
+              <th class="text-center">Toplam Test</th>
+              <th class="text-center">Tamamlanan</th>
+              <th class="text-center">Devam Eden</th>
+              <th class="text-center">Bekleyen</th>
+              <th class="text-center">Ortalama Puan</th>
+              <th class="text-center">En Yüksek Puan</th>
+              <th class="text-center">Toplam Doğru</th>
+              <th class="text-center">Başarı Oranı</th>
+              <th class="text-center">Durum</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% ogrenciStats.forEach(function(ogrenci) { 
+              const ortPuan = ogrenci.ortalama_puan ? parseFloat(ogrenci.ortalama_puan) : 0;
+              const enYuksekPuan = ogrenci.en_yuksek_puan ? parseFloat(ogrenci.en_yuksek_puan) : 0;
+              const bekleyen = (ogrenci.toplam_test || 0) - (ogrenci.tamamlanan || 0) - (ogrenci.devam_eden || 0);
+              const basariOrani = ogrenci.tamamlanan > 0 ? ((ogrenci.tamamlanan / ogrenci.toplam_test) * 100).toFixed(0) : 0;
+              
+              let scoreClass = 'score-low';
+              if (ortPuan >= 70) scoreClass = 'score-high';
+              else if (ortPuan >= 50) scoreClass = 'score-medium';
+            %>
+              <tr>
+                <td><strong><%= ogrenci.numara %></strong></td>
+                <td>
+                  <a href="/admin/ogrenci/<%= ogrenci.id %>" style="color: #7e22ce; text-decoration: none; font-weight: 600;">
+                    <%= ogrenci.ad %> <%= ogrenci.soyad %>
+                  </a>
+                </td>
+                <td class="text-center stat-number"><%= ogrenci.toplam_test || 0 %></td>
+                <td class="text-center">
+                  <span class="badge badge-success"><%= ogrenci.tamamlanan || 0 %></span>
+                </td>
+                <td class="text-center">
+                  <span class="badge badge-warning"><%= ogrenci.devam_eden || 0 %></span>
+                </td>
+                <td class="text-center">
+                  <span class="badge badge-info"><%= bekleyen %></span>
+                </td>
+                <td class="text-center <%= scoreClass %>">
+                  <%= ortPuan ? ortPuan.toFixed(2) : '-' %>
+                </td>
+                <td class="text-center score-high">
+                  <%= enYuksekPuan ? enYuksekPuan.toFixed(2) : '-' %>
+                </td>
+                <td class="text-center stat-number">
+                  <%= ogrenci.toplam_dogru || 0 %>
+                </td>
+                <td class="text-center">
+                  <% if (basariOrani >= 75) { %>
+                    <span class="badge badge-success"><%= basariOrani %>%</span>
+                  <% } else if (basariOrani >= 50) { %>
+                    <span class="badge badge-warning"><%= basariOrani %>%</span>
+                  <% } else if (basariOrani > 0) { %>
+                    <span class="badge badge-danger"><%= basariOrani %>%</span>
+                  <% } else { %>
+                    <span class="badge badge-danger">0%</span>
+                  <% } %>
+                </td>
+                <td class="text-center">
+                  <% if (ogrenci.tamamlanan > 0) { %>
+                    <span class="badge badge-info">Aktif</span>
+                  <% } else if (ogrenci.devam_eden > 0) { %>
+                    <span class="badge badge-warning">Başladı</span>
+                  <% } else { %>
+                    <span class="badge badge-danger">Başlamadı</span>
+                  <% } %>
+                </td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      <% } else { %>
+        <div class="no-data">
+          📭 Henüz öğrenci verisi bulunmuyor.
+        </div>
+      <% } %>
+    </div>
+    
+    <!-- Test İstatistikleri -->
+    <div class="section-title">📝 Test İstatistikleri</div>
+    <div class="table-card">
+      <% if (testStats && testStats.length > 0) { %>
+        <table>
+          <thead>
+            <tr>
+              <th>Test Kodu</th>
+              <th>Test Adı</th>
+              <th class="text-center">Soru Sayısı</th>
+              <th class="text-center">Atanan Öğrenci</th>
+              <th class="text-center">Tamamlayan</th>
+              <th class="text-center">Devam Eden</th>
+              <th class="text-center">Bekleyen</th>
+              <th class="text-center">Ort. Puan</th>
+              <th class="text-center">En Yüksek</th>
+              <th class="text-center">En Düşük</th>
+              <th class="text-center">Ort. Doğru %</th>
+              <th class="text-center">Tamamlanma %</th>
+              <th class="text-center">Zorluk</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% testStats.forEach(function(test) { 
+              const ortPuan = test.ortalama_puan ? parseFloat(test.ortalama_puan) : 0;
+              const enYuksek = test.en_yuksek_puan ? parseFloat(test.en_yuksek_puan) : 0;
+              const enDusuk = test.en_dusuk_puan ? parseFloat(test.en_dusuk_puan) : 0;
+              const tamamlanmaOran = test.atanan_ogrenci > 0 
+                ? ((test.tamamlanan / test.atanan_ogrenci) * 100).toFixed(0) 
+                : 0;
+              
+              const devamEden = (test.devam_eden || 0);
+              const bekleyen = (test.atanan_ogrenci || 0) - (test.tamamlanan || 0) - devamEden;
+              const ortalamaDogru = test.ortalama_dogru_yuzde ? parseFloat(test.ortalama_dogru_yuzde) : 0;
+              
+              // Zorluk seviyesi hesaplama (ortalama puana göre)
+              let zorlukSeviye = 'Kolay';
+              let zorlukClass = 'badge-success';
+              if (ortPuan < 40) {
+                zorlukSeviye = 'Çok Zor';
+                zorlukClass = 'badge-danger';
+              } else if (ortPuan < 60) {
+                zorlukSeviye = 'Zor';
+                zorlukClass = 'badge-warning';
+              } else if (ortPuan < 80) {
+                zorlukSeviye = 'Orta';
+                zorlukClass = 'badge-info';
+              }
+              
+              let scoreClass = 'score-low';
+              if (ortPuan >= 70) scoreClass = 'score-high';
+              else if (ortPuan >= 50) scoreClass = 'score-medium';
+            %>
+              <tr>
+                <td><strong><%= test.test_kodu %></strong></td>
+                <td><%= test.test_adi %></td>
+                <td class="text-center stat-number"><%= test.soru_sayisi %></td>
+                <td class="text-center stat-number"><%= test.atanan_ogrenci || 0 %></td>
+                <td class="text-center">
+                  <span class="badge badge-success"><%= test.tamamlanan || 0 %></span>
+                </td>
+                <td class="text-center">
+                  <span class="badge badge-warning"><%= devamEden %></span>
+                </td>
+                <td class="text-center">
+                  <span class="badge badge-info"><%= bekleyen %></span>
+                </td>
+                <td class="text-center <%= scoreClass %>">
+                  <%= ortPuan ? ortPuan.toFixed(2) : '-' %>
+                </td>
+                <td class="text-center score-high">
+                  <%= enYuksek ? enYuksek.toFixed(2) : '-' %>
+                </td>
+                <td class="text-center score-low">
+                  <%= enDusuk ? enDusuk.toFixed(2) : '-' %>
+                </td>
+                <td class="text-center stat-number">
+                  <%= ortalamaDogru ? ortalamaDogru.toFixed(1) + '%' : '-' %>
+                </td>
+                <td class="text-center">
+                  <% if (tamamlanmaOran >= 75) { %>
+                    <span class="badge badge-success"><%= tamamlanmaOran %>%</span>
+                  <% } else if (tamamlanmaOran >= 50) { %>
+                    <span class="badge badge-warning"><%= tamamlanmaOran %>%</span>
+                  <% } else if (tamamlanmaOran > 0) { %>
+                    <span class="badge badge-danger"><%= tamamlanmaOran %>%</span>
+                  <% } else { %>
+                    <span class="badge badge-info">0%</span>
+                  <% } %>
+                </td>
+                <td class="text-center">
+                  <span class="badge <%= zorlukClass %>"><%= zorlukSeviye %></span>
+                </td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      <% } else { %>
+        <div class="no-data">
+          📭 Henüz test verisi bulunmuyor.
+        </div>
+      <% } %>
+    </div>
+  </div>
+  
+  <script>
+    function testSonuclariniGuncelle() {
+      const btn = document.getElementById('updateBtn');
+      const messageDiv = document.getElementById('updateMessage');
+      
+      btn.disabled = true;
+      btn.textContent = '🔄 Güncelleniyor...';
+      messageDiv.style.display = 'none';
+      
+      fetch('/admin/test-sonuclarini-guncelle', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+      .then(response => response.json())
+      .then(data => {
+        btn.disabled = false;
+        btn.textContent = '🔄 Test Sonuçlarını Yeniden Hesapla';
+        
+        messageDiv.style.display = 'block';
+        if (data.success) {
+          messageDiv.className = 'update-message update-success';
+          messageDiv.innerHTML = `✅ ${data.message}`;
+          
+          if (data.hatalar && data.hatalar.length > 0) {
+            messageDiv.innerHTML += `<br><br><strong>Hatalar:</strong><br>${data.hatalar.join('<br>')}`;
+          }
+          
+          // 3 saniye sonra sayfayı yenile
+          setTimeout(() => {
+            window.location.reload();
+          }, 3000);
+        } else {
+          messageDiv.className = 'update-message update-error';
+          messageDiv.textContent = `❌ ${data.message}`;
+        }
+      })
+      .catch(error => {
+        btn.disabled = false;
+        btn.textContent = '🔄 Test Sonuçlarını Yeniden Hesapla';
+        
+        messageDiv.style.display = 'block';
+        messageDiv.className = 'update-message update-error';
+        messageDiv.textContent = '❌ Güncelleme sırasında hata oluştu.';
+        console.error('Error:', error);
+      });
+    }
+    
+    function ogrenciAra() {
+      const numara = document.getElementById('ogrenciNumara').value.trim();
+      const messageDiv = document.getElementById('aramaMsg');
+      
+      if (!numara) {
+        messageDiv.style.display = 'block';
+        messageDiv.className = 'update-message update-error';
+        messageDiv.textContent = '❌ Lütfen öğrenci numarası girin.';
+        return;
+      }
+      
+      messageDiv.style.display = 'block';
+      messageDiv.className = 'update-message';
+      messageDiv.style.background = '#d1ecf1';
+      messageDiv.style.color = '#0c5460';
+      messageDiv.textContent = '🔍 Öğrenci aranıyor...';
+      
+      fetch('/admin/ogrenci-ara', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ numara: numara })
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          messageDiv.className = 'update-message update-success';
+          messageDiv.textContent = `✅ ${data.ogrenci.ad} ${data.ogrenci.soyad} bulundu! Yönlendiriliyor...`;
+          
+          // 1 saniye sonra öğrenci profiline yönlendir
+          setTimeout(() => {
+            window.location.href = `/admin/ogrenci/${data.ogrenci.id}`;
+          }, 1000);
+        } else {
+          messageDiv.className = 'update-message update-error';
+          messageDiv.textContent = `❌ ${data.message}`;
+        }
+      })
+      .catch(error => {
+        messageDiv.className = 'update-message update-error';
+        messageDiv.textContent = '❌ Arama sırasında hata oluştu.';
+        console.error('Error:', error);
+      });
+    }
+    
+    // Input focus olduğunda border rengini değiştir
+    document.addEventListener('DOMContentLoaded', function() {
+      const input = document.getElementById('ogrenciNumara');
+      input.addEventListener('focus', function() {
+        this.style.borderColor = '#667eea';
+      });
+      input.addEventListener('blur', function() {
+        this.style.borderColor = '#e1e5e9';
+      });
+    });
+  </script>
+</body>
+</html>

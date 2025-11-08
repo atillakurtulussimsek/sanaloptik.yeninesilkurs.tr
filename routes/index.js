@@ -1,9 +1,1573 @@
 var express = require('express');
 var router = express.Router();
+var Ogrenci = require('../models/Ogrenci');
+var Test = require('../models/Test');
+var Admin = require('../models/Admin');
+var authMiddleware = require('../middleware/auth');
+var K12NetSSO = require('../utils/K12NetSSO');
 
-/* GET home page. */
+
+// Admin middleware
+function adminAuthMiddleware(req, res, next) {
+  if (req.session && req.session.admin) {
+    return next();
+  }
+  res.redirect('/admin/giris');
+}
+
+// Ana sayfa - Giriş sayfasına yönlendir
 router.get('/', function(req, res, next) {
-  res.render('index', { title: 'Express' });
+  if (req.session && req.session.ogrenci) {
+    return res.redirect('/testler');
+  }
+  res.redirect('/giris');
+});
+
+// Giriş sayfası
+router.get('/giris', function(req, res, next) {
+  if (req.session && req.session.ogrenci) {
+    return res.redirect('/testler');
+  }
+  res.render('giris', { hata: null });
+});
+
+// Giriş işlemi
+router.post('/giris', function(req, res, next) {
+  const { numara, sifre } = req.body;
+  
+  // Giriş denemesi logla
+  req.systemLogger.log({
+    userType: 'student',
+    actionType: 'login_attempt',
+    actionCategory: 'auth',
+    actionDescription: `Öğrenci giriş denemesi - Numara: ${numara}`,
+    ipAddress: req.systemLogger.getClientIP(req),
+    userAgent: req.get('User-Agent'),
+    method: req.method,
+    url: req.originalUrl,
+    requestData: { numara }
+  }).catch(console.error);
+  
+  Ogrenci.girisYap(numara, sifre, (err, ogrenci) => {
+    if (err) {
+      // Hata logla
+      req.systemLogger.logError(err, req, null, 'student').catch(console.error);
+      return res.render('giris', { hata: 'Bir hata oluştu.' });
+    }
+    
+    if (!ogrenci) {
+      // Başarısız giriş logla
+      req.systemLogger.log({
+        userType: 'student',
+        actionType: 'login_failed',
+        actionCategory: 'auth',
+        actionDescription: `Başarısız giriş denemesi - Numara: ${numara}`,
+        ipAddress: req.systemLogger.getClientIP(req),
+        userAgent: req.get('User-Agent'),
+        method: req.method,
+        url: req.originalUrl,
+        requestData: { numara }
+      }).catch(console.error);
+      
+      return res.render('giris', { hata: 'Numara veya şifre hatalı!' });
+    }
+    
+    req.session.ogrenci = {
+      id: ogrenci.id,
+      ad: ogrenci.ad,
+      soyad: ogrenci.soyad,
+      numara: ogrenci.numara
+    };
+    
+    // Başarılı giriş logla
+    req.systemLogger.logStudentAuth('login_success', ogrenci.id, req, {
+      studentNumber: ogrenci.numara,
+      studentName: `${ogrenci.ad} ${ogrenci.soyad}`
+    }).catch(console.error);
+    
+    res.redirect('/testler');
+  });
+});
+
+// Çıkış işlemi
+router.get('/cikis', function(req, res, next) {
+  // Çıkış logla
+  if (req.session && req.session.ogrenci) {
+    req.systemLogger.logStudentAuth('logout', req.session.ogrenci.id, req, {
+      studentNumber: req.session.ogrenci.numara,
+      studentName: `${req.session.ogrenci.ad} ${req.session.ogrenci.soyad}`
+    }).catch(console.error);
+  }
+  
+  req.session.destroy();
+  res.redirect('/giris');
+});
+
+// Testler listesi (Giriş gerekli)
+router.get('/testler', authMiddleware, function(req, res, next) {
+  const ogrenciId = req.session.ogrenci.id;
+  
+  Test.ogrencininTestleriniGetir(ogrenciId, (err, testler) => {
+    if (err) {
+      return next(err);
+    }
+    
+    res.render('testler', { 
+      ogrenci: req.session.ogrenci,
+      testler: testler 
+    });
+  });
+});
+
+// Test detay ve çözme sayfası (Giriş gerekli)
+router.get('/test/:id', authMiddleware, function(req, res, next) {
+  const testId = req.params.id;
+  const ogrenciId = req.session.ogrenci.id;
+  
+  // Test erişim logla
+  req.systemLogger.logStudentTest('test_accessed', ogrenciId, testId, req, {
+    testId: testId
+  }).catch(console.error);
+  
+  // Önce öğrencinin bu teste erişimi var mı kontrol et
+  Test.ogrenciTestErisimKontrol(ogrenciId, testId, (err, erisim) => {
+    if (err) return next(err);
+    
+    if (!erisim) {
+      // Yetkisiz erişim denemesi logla
+      req.systemLogger.log({
+        userId: ogrenciId,
+        userType: 'student',
+        actionType: 'unauthorized_access',
+        actionCategory: 'security',
+        actionDescription: `Yetkisiz test erişim denemesi - Test ID: ${testId}`,
+        targetType: 'test',
+        targetId: testId,
+        ipAddress: req.systemLogger.getClientIP(req),
+        userAgent: req.get('User-Agent'),
+        method: req.method,
+        url: req.originalUrl
+      }).catch(console.error);
+      
+      return res.redirect('/testler');
+    }
+    
+    Test.getById(testId, (err, test) => {
+      if (err || !test) {
+        return res.redirect('/testler');
+      }
+      
+      Test.ogrenciCevaplariniGetir(ogrenciId, testId, (err, cevaplar) => {
+        if (err) {
+          return next(err);
+        }
+        
+        // Cevapları soru numarasına göre map'le
+        const cevapMap = {};
+        cevaplar.forEach(c => {
+          cevapMap[c.soru_no] = c.cevap;
+        });
+        
+        res.render('test-detay', {
+          ogrenci: req.session.ogrenci,
+          test: test,
+          cevaplar: cevapMap,
+          testDurum: erisim
+        });
+      });
+    });
+  });
+});
+
+// Cevap kaydetme (AJAX)
+router.post('/cevap-kaydet', authMiddleware, function(req, res, next) {
+  const { test_id, soru_no, cevap } = req.body;
+  const ogrenciId = req.session.ogrenci.id;
+  
+  // Cevap işaretleme logla
+  req.systemLogger.logStudentAnswer(ogrenciId, test_id, soru_no, cevap, req, {
+    previousAnswer: null // Önceki cevap varsa buraya eklenebilir
+  }).catch(console.error);
+  
+  Test.cevapKaydet(ogrenciId, test_id, soru_no, cevap, (err) => {
+    if (err) {
+      req.systemLogger.logError(err, req, ogrenciId, 'student').catch(console.error);
+      return res.json({ success: false, message: 'Cevap kaydedilemedi.' });
+    }
+    
+    res.json({ success: true, message: 'Cevap kaydedildi.' });
+  });
+});
+
+// Test tamamlama
+router.post('/test-tamamla', authMiddleware, function(req, res, next) {
+  const { test_id } = req.body;
+  const ogrenciId = req.session.ogrenci.id;
+  
+  // Test tamamlama logla
+  req.systemLogger.logStudentTest('test_completed', ogrenciId, test_id, req, {
+    completionMethod: 'manual'
+  }).catch(console.error);
+  
+  // Test sonucunu hesapla
+  Test.testSonucuHesapla(ogrenciId, test_id, (err, sonuc) => {
+    if (err) {
+      req.systemLogger.logError(err, req, ogrenciId, 'student').catch(console.error);
+      return res.json({ success: false, message: 'Test değerlendirilemedi.' });
+    }
+    
+    // Test durumunu tamamlandı olarak güncelle
+    Test.testiTamamla(ogrenciId, test_id, (err) => {
+      if (err) {
+        req.systemLogger.logError(err, req, ogrenciId, 'student').catch(console.error);
+        return res.json({ success: false, message: 'Test tamamlanamadı.' });
+      }
+      
+      res.json({ 
+        success: true, 
+        message: 'Test tamamlandı!',
+        sonuc: sonuc
+      });
+    });
+  });
+});
+
+// Test sonucunu getir
+router.get('/test-sonuc', authMiddleware, function(req, res, next) {
+  const { test_id } = req.query;
+  const ogrenciId = req.session.ogrenci.id;
+  
+  Test.testSonucuHesapla(ogrenciId, test_id, (err, sonuc) => {
+    if (err) {
+      return res.json({ success: false, message: 'Test sonucu alınamadı.' });
+    }
+    
+    res.json({ success: true, sonuc: sonuc });
+  });
+});
+
+// ============ VIDEO İZLEME API'LERİ ============
+
+// Video izleme başlatma
+router.post('/video-izleme-baslat', authMiddleware, function(req, res, next) {
+  const { test_id, soru_no } = req.body;
+  const ogrenciId = req.session.ogrenci.id;
+  const db = require('../database');
+  
+  // Video izleme detay kaydı başlat
+  db.query(
+    `INSERT INTO video_izleme_detay 
+     (ogrenci_id, test_id, soru_no, session_id, ip_address, user_agent) 
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [
+      ogrenciId, 
+      test_id, 
+      soru_no, 
+      req.session.id,
+      req.systemLogger.getClientIP(req),
+      req.get('User-Agent')
+    ],
+    (err, result) => {
+      if (err) {
+        console.error('Video izleme detay kayıt hatası:', err);
+        return res.json({ success: false, message: 'Video izleme kaydedilemedi.' });
+      }
+      
+      // Ana video izleme tablosunu güncelle
+      db.query(
+        `INSERT INTO video_izleme 
+         (ogrenci_id, test_id, soru_no, izleme_sayisi, ip_address, tarayici)
+         VALUES (?, ?, ?, 1, ?, ?)
+         ON DUPLICATE KEY UPDATE 
+         izleme_sayisi = izleme_sayisi + 1,
+         son_izleme_tarihi = CURRENT_TIMESTAMP,
+         ip_address = VALUES(ip_address)`,
+        [
+          ogrenciId, 
+          test_id, 
+          soru_no,
+          req.systemLogger.getClientIP(req),
+          req.get('User-Agent')
+        ],
+        (err2) => {
+          if (err2) {
+            console.error('Video izleme ana tablo hatası:', err2);
+          }
+          
+          // Video izleme logla
+          req.systemLogger.logVideoAccess(ogrenciId, test_id, soru_no, req, {
+            detayId: result.insertId,
+            sessionStart: new Date().toISOString()
+          }).catch(console.error);
+          
+          res.json({ 
+            success: true, 
+            message: 'Video izleme başlatıldı.',
+            detay_id: result.insertId
+          });
+        }
+      );
+    }
+  );
+});
+
+// Video izleme bitirme
+router.post('/video-izleme-bitir', authMiddleware, function(req, res, next) {
+  const { detay_id, izleme_suresi, video_yuzde, tam_izlendi, cikis_noktasi } = req.body;
+  const db = require('../database');
+  
+  db.query(
+    `UPDATE video_izleme_detay 
+     SET izleme_bitir = CURRENT_TIMESTAMP,
+         izleme_suresi = ?,
+         video_yuzde_izlendi = ?,
+         tam_izlendi = ?,
+         cikis_noktasi = ?
+     WHERE id = ?`,
+    [izleme_suresi, video_yuzde, tam_izlendi, cikis_noktasi, detay_id],
+    (err) => {
+      if (err) {
+        console.error('Video izleme bitirme hatası:', err);
+        return res.json({ success: false, message: 'Video izleme güncellenemedi.' });
+      }
+      
+      // Ana tablodaki toplam süreyi güncelle
+      db.query(
+        `UPDATE video_izleme 
+         SET toplam_izleme_suresi = toplam_izleme_suresi + ?,
+             son_izleme_suresi = ?
+         WHERE ogrenci_id = (SELECT ogrenci_id FROM video_izleme_detay WHERE id = ?)
+         AND test_id = (SELECT test_id FROM video_izleme_detay WHERE id = ?)
+         AND soru_no = (SELECT soru_no FROM video_izleme_detay WHERE id = ?)`,
+        [izleme_suresi, izleme_suresi, detay_id, detay_id, detay_id],
+        (err2) => {
+          if (err2) {
+            console.error('Video süre güncelleme hatası:', err2);
+          }
+          
+          // Soru numarasını almak için sorgu yap
+          db.query(
+            'SELECT soru_no FROM video_izleme_detay WHERE id = ?',
+            [detay_id],
+            (err3, results) => {
+              const soruNo = results && results.length > 0 ? results[0].soru_no : null;
+              
+              res.json({ 
+                success: true, 
+                message: 'Video izleme tamamlandı.',
+                izleme_suresi: izleme_suresi,
+                tam_izlendi: tam_izlendi,
+                soru_no: soruNo
+              });
+            }
+          );
+        }
+      );
+    }
+  );
+});
+
+// Video izleme istatistikleri getir
+router.get('/video-istatistikleri/:testId', authMiddleware, function(req, res, next) {
+  const testId = req.params.testId;
+  const ogrenciId = req.session.ogrenci.id;
+  const db = require('../database');
+  
+  db.query(
+    `SELECT 
+       soru_no,
+       izleme_sayisi,
+       toplam_izleme_suresi,
+       son_izleme_suresi,
+       ilk_izleme_tarihi,
+       son_izleme_tarihi
+     FROM video_izleme 
+     WHERE ogrenci_id = ? AND test_id = ?
+     ORDER BY soru_no`,
+    [ogrenciId, testId],
+    (err, results) => {
+      if (err) {
+        console.error('Video istatistikleri hatası:', err);
+        return res.json({ success: false, message: 'İstatistikler alınamadı.' });
+      }
+      
+      const istatistikler = {};
+      results.forEach(stat => {
+        istatistikler[stat.soru_no] = {
+          izlenmeSayisi: stat.izleme_sayisi,
+          toplamSure: stat.toplam_izleme_suresi,
+          sonSure: stat.son_izleme_suresi,
+          ilkIzleme: stat.ilk_izleme_tarihi,
+          sonIzleme: stat.son_izleme_tarihi
+        };
+      });
+      
+      res.json({ success: true, istatistikler: istatistikler });
+    }
+  );
+});
+
+// ============ ADMIN ROUTES ============
+
+// Admin giriş sayfası
+router.get('/admin/giris', function(req, res, next) {
+  if (req.session && req.session.admin) {
+    return res.redirect('/admin/dashboard');
+  }
+  res.render('admin-giris', { hata: null });
+});
+
+// Admin giriş işlemi
+router.post('/admin/giris', function(req, res, next) {
+  const { kullanici_adi, sifre } = req.body;
+  
+  // Admin giriş denemesi logla
+  req.systemLogger.log({
+    userType: 'admin',
+    actionType: 'login_attempt',
+    actionCategory: 'auth',
+    actionDescription: `Admin giriş denemesi - Kullanıcı: ${kullanici_adi}`,
+    ipAddress: req.systemLogger.getClientIP(req),
+    userAgent: req.get('User-Agent'),
+    method: req.method,
+    url: req.originalUrl,
+    requestData: { kullanici_adi }
+  }).catch(console.error);
+  
+  Admin.girisYap(kullanici_adi, sifre, (err, admin) => {
+    if (err) {
+      req.systemLogger.logError(err, req, null, 'admin').catch(console.error);
+      return res.render('admin-giris', { hata: 'Bir hata oluştu.' });
+    }
+    
+    if (!admin) {
+      // Başarısız admin giriş logla
+      req.systemLogger.log({
+        userType: 'admin',
+        actionType: 'login_failed',
+        actionCategory: 'auth',
+        actionDescription: `Başarısız admin giriş denemesi - Kullanıcı: ${kullanici_adi}`,
+        ipAddress: req.systemLogger.getClientIP(req),
+        userAgent: req.get('User-Agent'),
+        method: req.method,
+        url: req.originalUrl,
+        requestData: { kullanici_adi }
+      }).catch(console.error);
+      
+      return res.render('admin-giris', { hata: 'Kullanıcı adı veya şifre hatalı!' });
+    }
+    
+    req.session.admin = {
+      id: admin.id,
+      ad: admin.ad,
+      soyad: admin.soyad,
+      kullanici_adi: admin.kullanici_adi
+    };
+    
+    // Başarılı admin giriş logla
+    req.systemLogger.logAdminAuth('login_success', admin.id, req, {
+      adminUsername: admin.kullanici_adi,
+      adminName: `${admin.ad} ${admin.soyad}`
+    }).catch(console.error);
+    
+    res.redirect('/admin/dashboard');
+  });
+});
+
+// Admin çıkış işlemi
+router.get('/admin/cikis', function(req, res, next) {
+  // Admin çıkış logla
+  if (req.session && req.session.admin) {
+    req.systemLogger.logAdminAuth('logout', req.session.admin.id, req, {
+      adminUsername: req.session.admin.kullanici_adi
+    }).catch(console.error);
+  }
+  
+  req.session.destroy();
+  res.redirect('/admin/giris');
+});
+
+// Admin dashboard
+router.get('/admin/dashboard', adminAuthMiddleware, function(req, res, next) {
+  // Dashboard erişim logla
+  req.systemLogger.logAdminAction('dashboard_accessed', req.session.admin.id, req).catch(console.error);
+  
+  Admin.dashboardIstatistikleri((err, istatistikler) => {
+    if (err) return next(err);
+    
+    res.render('admin-dashboard', {
+      admin: req.session.admin,
+      istatistikler: istatistikler
+    });
+  });
+});
+
+// Test oluşturma sayfası
+router.get('/admin/test-olustur', adminAuthMiddleware, function(req, res, next) {
+  res.render('admin-test-olustur', {
+    admin: req.session.admin,
+    hata: null,
+    basari: null
+  });
+});
+
+// Test kodu kontrol endpoint'i (AJAX için)
+router.get('/admin/test-kod-kontrol', adminAuthMiddleware, function(req, res, next) {
+  const testKodu = req.query.kod;
+  
+  if (!testKodu) {
+    return res.json({ mevcut: false });
+  }
+  
+  // Test kodunun veritabanında olup olmadığını kontrol et
+  const db = require('../database');
+  db.query(
+    'SELECT id FROM test_havuzu WHERE UPPER(test_kodu) = ?',
+    [testKodu.toUpperCase()],
+    (err, results) => {
+      if (err) {
+        console.error('Test kodu kontrol hatası:', err);
+        return res.json({ mevcut: false });
+      }
+      
+      // Eğer sonuç varsa kod zaten kullanılıyor
+      res.json({ mevcut: results.length > 0 });
+    }
+  );
+});
+
+// Öğrenci numarası kontrol endpoint'i (AJAX için)
+router.get('/admin/ogrenci-kontrol', adminAuthMiddleware, function(req, res, next) {
+  const ogrenciNumara = req.query.numara;
+  
+  if (!ogrenciNumara) {
+    return res.json({ bulundu: false });
+  }
+  
+  const db = require('../database');
+  db.query(
+    'SELECT numara, ad, soyad FROM ogrenciler WHERE numara = ?',
+    [ogrenciNumara],
+    (err, results) => {
+      if (err) {
+        console.error('Öğrenci kontrol hatası:', err);
+        return res.json({ bulundu: false });
+      }
+      
+      if (results.length > 0) {
+        res.json({ 
+          bulundu: true, 
+          ad: results[0].ad,
+          soyad: results[0].soyad
+        });
+      } else {
+        res.json({ bulundu: false });
+      }
+    }
+  );
+});
+
+// Test kodu mevcut mu kontrol endpoint'i (test atama için - AJAX)
+router.get('/admin/test-havuz-kontrol', adminAuthMiddleware, function(req, res, next) {
+  const testKodu = req.query.kod;
+  
+  if (!testKodu) {
+    return res.json({ bulundu: false });
+  }
+  
+  const db = require('../database');
+  db.query(
+    'SELECT test_kodu, test_adi FROM test_havuzu WHERE UPPER(test_kodu) = ?',
+    [testKodu.toUpperCase()],
+    (err, results) => {
+      if (err) {
+        console.error('Test havuz kontrol hatası:', err);
+        return res.json({ bulundu: false });
+      }
+      
+      if (results.length > 0) {
+        res.json({ 
+          bulundu: true, 
+          testAdi: results[0].test_adi
+        });
+      } else {
+        res.json({ bulundu: false });
+      }
+    }
+  );
+});
+
+// Test oluşturma işlemi
+router.post('/admin/test-olustur', adminAuthMiddleware, function(req, res, next) {
+  const { test_kodu, test_adi, soru_sayisi } = req.body;
+  
+  // Test kodunu büyük harfe çevir ve temizle
+  const temizTestKodu = test_kodu.trim().toUpperCase();
+  
+  // Önce test kodunun benzersiz olduğunu kontrol et
+  const db = require('../database');
+  db.query(
+    'SELECT id FROM test_havuzu WHERE UPPER(test_kodu) = ?',
+    [temizTestKodu],
+    (err, results) => {
+      if (err) {
+        return res.render('admin-test-olustur', {
+          admin: req.session.admin,
+          hata: 'Kontrol hatası: ' + err.message,
+          basari: null
+        });
+      }
+      
+      // Eğer kod zaten varsa hata ver
+      if (results.length > 0) {
+        return res.render('admin-test-olustur', {
+          admin: req.session.admin,
+          hata: 'Bu test kodu zaten kullanılıyor! Lütfen farklı bir kod girin.',
+          basari: null
+        });
+      }
+      
+      // Cevapları ve videoları topla
+      const cevaplar = {};
+      const videolar = {};
+      
+      for (let i = 1; i <= 25; i++) {
+        if (req.body['cevap_' + i]) {
+          cevaplar['cevap_' + i] = req.body['cevap_' + i];
+        }
+        if (req.body['video_' + i]) {
+          videolar['video_' + i] = req.body['video_' + i];
+        }
+      }
+      
+      // Temizlenmiş kodu kullan
+      Test.testOlustur(temizTestKodu, test_adi, soru_sayisi, cevaplar, videolar, (err, testId) => {
+        if (err) {
+          return res.render('admin-test-olustur', {
+            admin: req.session.admin,
+            hata: 'Test oluşturulamadı: ' + err.message,
+            basari: null
+          });
+        }
+        
+        res.render('admin-test-olustur', {
+          admin: req.session.admin,
+          hata: null,
+          basari: 'Test başarıyla oluşturuldu!'
+        });
+      });
+    }
+  );
+});
+
+// Test atama sayfası
+router.get('/admin/test-ata', adminAuthMiddleware, function(req, res, next) {
+  // Tüm öğrencileri ve testleri getir
+  Ogrenci.tumunuGetir((err, ogrenciler) => {
+    if (err) return next(err);
+    
+    Test.tumTestleriGetir((err, testler) => {
+      if (err) return next(err);
+      
+      res.render('admin-test-ata', {
+        admin: req.session.admin,
+        ogrenciler: ogrenciler,
+        testler: testler,
+        hata: null,
+        basari: null
+      });
+    });
+  });
+});
+
+// Test atama işlemi
+router.post('/admin/test-ata', adminAuthMiddleware, function(req, res, next) {
+  const { ogrenci_numara, test_kodu, ozel_test_adi } = req.body;
+  
+  // Özel test adı varsa trim yap, boşsa null gönder
+  const ozelAd = ozel_test_adi && ozel_test_adi.trim() ? ozel_test_adi.trim() : null;
+  
+  Test.testAtaKodlarla(ogrenci_numara, test_kodu, ozelAd, (err) => {
+    if (err) {
+      return Ogrenci.tumunuGetir((err2, ogrenciler) => {
+        Test.tumTestleriGetir((err3, testler) => {
+          res.render('admin-test-ata', {
+            admin: req.session.admin,
+            ogrenciler: ogrenciler || [],
+            testler: testler || [],
+            hata: err.message,
+            basari: null
+          });
+        });
+      });
+    }
+    
+    // Başarılı atama mesajı
+    const basariMesaji = ozelAd 
+      ? `Test başarıyla atandı! Öğrenci: ${ogrenci_numara} | Test: ${test_kodu.toUpperCase()} | Özel Ad: "${ozelAd}"`
+      : `Test başarıyla atandı! Öğrenci: ${ogrenci_numara} | Test: ${test_kodu.toUpperCase()}`;
+    
+    Ogrenci.tumunuGetir((err2, ogrenciler) => {
+      Test.tumTestleriGetir((err3, testler) => {
+        res.render('admin-test-ata', {
+          admin: req.session.admin,
+          ogrenciler: ogrenciler || [],
+          testler: testler || [],
+          hata: null,
+          basari: basariMesaji
+        });
+      });
+    });
+  });
+});
+
+// İstatistikler sayfası
+router.get('/admin/istatistikler', adminAuthMiddleware, function(req, res, next) {
+  // İstatistikler sayfası erişim logla
+  req.systemLogger.logAdminAction('statistics_viewed', req.session.admin.id, req).catch(console.error);
+  
+  Admin.ogrenciIstatistikleri((err, ogrenciStats) => {
+    if (err) return next(err);
+    
+    Admin.testIstatistikleri((err, testStats) => {
+      if (err) return next(err);
+      
+      Admin.genelIstatistikler((err, genelStats) => {
+        if (err) return next(err);
+        
+        res.render('admin-istatistikler', {
+          admin: req.session.admin,
+          ogrenciStats: ogrenciStats,
+          testStats: testStats,
+          genelStats: genelStats
+        });
+      });
+    });
+  });
+});
+
+// İşlem kayıtları (Logs) sayfası
+router.get('/admin/islem-kayitlari', adminAuthMiddleware, function(req, res, next) {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 50;
+  const offset = (page - 1) * limit;
+  
+  const userType = req.query.user_type || '';
+  const actionCategory = req.query.action_category || '';
+  const dateFrom = req.query.date_from || '';
+  const dateTo = req.query.date_to || '';
+  const searchTerm = req.query.search || '';
+  
+  // Log görüntüleme işlemini logla
+  req.systemLogger.logAdminAction('logs_viewed', req.session.admin.id, req, null, null, {
+    filters: { userType, actionCategory, dateFrom, dateTo, searchTerm },
+    page, limit
+  }).catch(console.error);
+  
+  let whereConditions = [];
+  let queryParams = [];
+  
+  if (userType) {
+    whereConditions.push('user_type = ?');
+    queryParams.push(userType);
+  }
+  
+  if (actionCategory) {
+    whereConditions.push('action_category = ?');
+    queryParams.push(actionCategory);
+  }
+  
+  if (dateFrom) {
+    whereConditions.push('created_at >= ?');
+    queryParams.push(dateFrom + ' 00:00:00');
+  }
+  
+  if (dateTo) {
+    whereConditions.push('created_at <= ?');
+    queryParams.push(dateTo + ' 23:59:59');
+  }
+  
+  if (searchTerm) {
+    whereConditions.push('(action_description LIKE ? OR ip_address LIKE ? OR url LIKE ?)');
+    queryParams.push(`%${searchTerm}%`, `%${searchTerm}%`, `%${searchTerm}%`);
+  }
+  
+  const whereClause = whereConditions.length > 0 ? 'WHERE ' + whereConditions.join(' AND ') : '';
+  
+  const db = require('../database');
+  
+  // Toplam kayıt sayısını al
+  const countQuery = `SELECT COUNT(*) as total FROM logs ${whereClause}`;
+  db.query(countQuery, queryParams, (err, countResults) => {
+    if (err) return next(err);
+    
+    const totalRecords = countResults[0].total;
+    const totalPages = Math.ceil(totalRecords / limit);
+    
+    // Logs kayıtlarını al
+    const logsQuery = `
+      SELECT 
+        l.*,
+        o.ad as ogrenci_ad, o.soyad as ogrenci_soyad, o.numara as ogrenci_numara,
+        a.ad as admin_ad, a.soyad as admin_soyad, a.kullanici_adi as admin_kullanici
+      FROM logs l
+      LEFT JOIN ogrenciler o ON l.user_id = o.id AND l.user_type = 'student'
+      LEFT JOIN adminler a ON l.user_id = a.id AND l.user_type = 'admin'
+      ${whereClause}
+      ORDER BY l.created_at DESC
+      LIMIT ? OFFSET ?
+    `;
+    
+    queryParams.push(limit, offset);
+    
+    db.query(logsQuery, queryParams, (err, logs) => {
+      if (err) return next(err);
+      
+      res.render('admin-islem-kayitlari', {
+        admin: req.session.admin,
+        logs: logs,
+        pagination: {
+          currentPage: page,
+          totalPages: totalPages,
+          totalRecords: totalRecords,
+          hasNext: page < totalPages,
+          hasPrev: page > 1,
+          limit: limit
+        },
+        filters: {
+          userType,
+          actionCategory,
+          dateFrom,
+          dateTo,
+          searchTerm
+        }
+      });
+    });
+  });
+});
+
+// Öğrenci detay sayfası
+router.get('/admin/ogrenci/:id', adminAuthMiddleware, function(req, res, next) {
+  const ogrenciId = req.params.id;
+  const db = require('../database');
+  
+  // Öğrenci bilgilerini al
+  db.query(
+    'SELECT * FROM ogrenciler WHERE id = ?',
+    [ogrenciId],
+    (err, ogrenciResults) => {
+      if (err) return next(err);
+      if (ogrenciResults.length === 0) {
+        return res.render('error', {
+          message: 'Öğrenci bulunamadı',
+          error: { status: 404, stack: '' }
+        });
+      }
+      
+      const ogrenci = ogrenciResults[0];
+      
+      // Öğrencinin test istatistiklerini al
+      db.query(
+        `SELECT 
+          ot.*,
+          th.test_kodu,
+          th.test_adi,
+          th.soru_sayisi,
+          COALESCE(ot.ozel_test_adi, th.test_adi) as gorunen_test_adi,
+          CASE 
+            WHEN ot.tamamlanma_tarihi IS NOT NULL AND ot.atanma_tarihi IS NOT NULL 
+            THEN TIMESTAMPDIFF(MINUTE, ot.atanma_tarihi, ot.tamamlanma_tarihi)
+            ELSE NULL
+          END as sure_dakika
+        FROM ogrenci_testleri ot
+        JOIN test_havuzu th ON ot.test_id = th.id
+        WHERE ot.ogrenci_id = ?
+        ORDER BY ot.atanma_tarihi DESC`,
+        [ogrenciId],
+        (err, testResults) => {
+          if (err) return next(err);
+          
+          // Genel istatistikler hesapla
+              if (err) return next(err);
+              
+              // Genel istatistikler hesapla
+          const toplamTest = testResults.length;
+          const tamamlanan = testResults.filter(t => t.durum === 'tamamlandi').length;
+          const devamEden = testResults.filter(t => t.durum === 'devam_ediyor').length;
+          const bekleyen = testResults.filter(t => t.durum === 'beklemede').length;
+          
+          const tamamlananTestler = testResults.filter(t => t.durum === 'tamamlandi' && t.puan !== null);
+          const ortalamaPuan = tamamlananTestler.length > 0
+            ? tamamlananTestler.reduce((sum, t) => sum + parseFloat(t.puan || 0), 0) / tamamlananTestler.length
+            : 0;
+          
+          const toplamDogru = tamamlananTestler.reduce((sum, t) => sum + (t.dogru_sayisi || 0), 0);
+          const toplamYanlis = tamamlananTestler.reduce((sum, t) => sum + (t.yanlis_sayisi || 0), 0);
+          const toplamBos = tamamlananTestler.reduce((sum, t) => sum + (t.bos_sayisi || 0), 0);
+          
+          // Yeni detaylı istatistikler
+          const enYuksekPuan = tamamlananTestler.length > 0 
+            ? Math.max(...tamamlananTestler.map(t => parseFloat(t.puan || 0)))
+            : 0;
+          
+          const toplamSoru = testResults.reduce((sum, t) => sum + (t.soru_sayisi || 0), 0);
+          
+          const basariOrani = toplamTest > 0 ? ((tamamlanan / toplamTest) * 100).toFixed(1) : 0;
+          
+          const toplananSoru = toplamDogru + toplamYanlis + toplamBos;
+          const dogruOrani = toplananSoru > 0 ? ((toplamDogru / toplananSoru) * 100).toFixed(1) : 0;
+          
+          const surelerinOrt = tamamlananTestler.filter(t => t.sure_dakika).length > 0
+            ? (tamamlananTestler.filter(t => t.sure_dakika).reduce((sum, t) => sum + (t.sure_dakika || 0), 0) / tamamlananTestler.filter(t => t.sure_dakika).length).toFixed(0)
+            : null;
+          
+          // Başarı seviyesi belirleme
+          let basariSeviyesi = 'Başlangıç';
+          if (ortalamaPuan >= 90) basariSeviyesi = 'Mükemmel';
+          else if (ortalamaPuan >= 80) basariSeviyesi = 'Çok İyi';
+          else if (ortalamaPuan >= 70) basariSeviyesi = 'İyi';
+          else if (ortalamaPuan >= 60) basariSeviyesi = 'Orta';
+          else if (ortalamaPuan >= 50) basariSeviyesi = 'Geçer';
+          else if (ortalamaPuan > 0) basariSeviyesi = 'Gelişmeli';
+          
+          res.render('admin-ogrenci-detay', {
+            admin: req.session.admin,
+            ogrenci: ogrenci,
+            testler: testResults,
+            istatistikler: {
+              toplamTest,
+              tamamlanan,
+              devamEden,
+              bekleyen,
+              ortalamaPuan: ortalamaPuan.toFixed(2),
+              toplamDogru,
+              toplamYanlis,
+              toplamBos,
+              enYuksekPuan: enYuksekPuan.toFixed(2),
+              toplamSoru,
+              basariOrani,
+              dogruOrani,
+              ortalamaSure: surelerinOrt,
+              basariSeviyesi
+            }
+          });
+        }
+      );
+    }
+  );
+});
+
+// Test cevaplarını getir (Admin için)
+router.get('/admin/test-cevaplari/:testId', adminAuthMiddleware, function(req, res, next) {
+  const testId = req.params.testId;
+  const db = require('../database');
+  
+  // Test bilgilerini ve öğrencinin cevaplarını al
+  db.query(
+    `SELECT 
+      ot.*,
+      th.test_kodu,
+      th.test_adi,
+      th.soru_sayisi,
+      th.cevap_1, th.cevap_2, th.cevap_3, th.cevap_4, th.cevap_5,
+      th.cevap_6, th.cevap_7, th.cevap_8, th.cevap_9, th.cevap_10,
+      th.cevap_11, th.cevap_12, th.cevap_13, th.cevap_14, th.cevap_15,
+      th.cevap_16, th.cevap_17, th.cevap_18, th.cevap_19, th.cevap_20,
+      th.cevap_21, th.cevap_22, th.cevap_23, th.cevap_24, th.cevap_25,
+      o.ad,
+      o.soyad,
+      o.numara
+    FROM ogrenci_testleri ot
+    JOIN test_havuzu th ON ot.test_id = th.id
+    JOIN ogrenciler o ON ot.ogrenci_id = o.id
+    WHERE ot.id = ? AND ot.durum = 'tamamlandi'`,
+    [testId],
+    (err, results) => {
+      if (err) {
+        console.error('Test cevapları sorgu hatası:', err);
+        return res.json({ success: false, message: 'Veritabanı hatası.' });
+      }
+      
+      if (results.length === 0) {
+        return res.json({ success: false, message: 'Test bulunamadı veya tamamlanmamış.' });
+      }
+      
+      const testData = results[0];
+      
+      // Öğrencinin cevaplarını al
+      db.query(
+        'SELECT soru_no, cevap as secilen_cevap FROM ogrenci_cevaplari WHERE ogrenci_id = ? AND test_id = ? ORDER BY soru_no',
+        [testData.ogrenci_id, testData.test_id],
+        (err, cevapResults) => {
+          if (err) {
+            console.error('Cevaplar sorgu hatası:', err);
+            return res.json({ success: false, message: 'Cevaplar getirilemedi.' });
+          }
+          
+          // Öğrenci cevaplarını obje formatına çevir
+          const ogrenciCevaplari = {};
+          cevapResults.forEach(cevap => {
+            ogrenciCevaplari[cevap.soru_no] = cevap.secilen_cevap;
+          });
+          
+          // Cevap anahtarını test havuzundan oluştur
+          const cevapAnahtari = {};
+          for (let i = 1; i <= testData.soru_sayisi; i++) {
+            const cevapKolonu = `cevap_${i}`;
+            if (testData[cevapKolonu]) {
+              cevapAnahtari[i] = testData[cevapKolonu];
+            }
+          }
+          
+          // Video izleme bilgilerini al
+          db.query(
+            `SELECT soru_no, izleme_sayisi, toplam_izleme_suresi, son_izleme_tarihi
+             FROM video_izleme 
+             WHERE ogrenci_id = ? AND test_id = ?`,
+            [testData.ogrenci_id, testData.test_id],
+            (err, videoResults) => {
+              if (err) {
+                console.error('Video istatistikleri hatası:', err);
+              }
+              
+              const videoIstatistikleri = {};
+              if (videoResults) {
+                videoResults.forEach(video => {
+                  videoIstatistikleri[video.soru_no] = {
+                    izlenmeSayisi: video.izleme_sayisi,
+                    toplamSure: video.toplam_izleme_suresi,
+                    sonIzleme: video.son_izleme_tarihi
+                  };
+                });
+              }
+              
+              res.json({
+                success: true,
+                cevaplar: ogrenciCevaplari,
+                cevapAnahtari: cevapAnahtari,
+                videoIstatistikleri: videoIstatistikleri,
+                testBilgisi: {
+                  testAdi: testData.test_adi,
+                  testKodu: testData.test_kodu,
+                  soruSayisi: testData.soru_sayisi,
+                  puan: testData.puan ? parseFloat(testData.puan).toFixed(2) : '0.00',
+                  dogru: testData.dogru_sayisi || 0,
+                  yanlis: testData.yanlis_sayisi || 0,
+                  bos: testData.bos_sayisi || 0,
+                  ogrenci: {
+                    ad: testData.ad,
+                    soyad: testData.soyad,
+                    numara: testData.numara
+                  }
+                }
+              });
+            }
+          );
+        }
+      );
+    }
+  );
+});
+
+// Öğrenci arama (numara ile)
+router.post('/admin/ogrenci-ara', adminAuthMiddleware, function(req, res, next) {
+  const { numara } = req.body;
+  const db = require('../database');
+  
+  if (!numara) {
+    return res.json({ success: false, message: 'Öğrenci numarası gerekli.' });
+  }
+  
+  db.query(
+    'SELECT id, numara, ad, soyad FROM ogrenciler WHERE numara = ?',
+    [numara],
+    (err, results) => {
+      if (err) {
+        console.error('Öğrenci arama hatası:', err);
+        return res.json({ success: false, message: 'Veritabanı hatası.' });
+      }
+      
+      if (results.length === 0) {
+        return res.json({ success: false, message: `${numara} numaralı öğrenci bulunamadı.` });
+      }
+      
+      res.json({ 
+        success: true, 
+        message: 'Öğrenci bulundu.',
+        ogrenci: results[0]
+      });
+    }
+  );
+});
+
+// Tamamlanmış testlerin sonuçlarını yeniden hesapla (Admin için)
+router.post('/admin/test-sonuclarini-guncelle', adminAuthMiddleware, function(req, res, next) {
+  const db = require('../database');
+  
+  // Tamamlanmış ama puan bilgisi olmayan testleri bul
+  db.query(
+    `SELECT ot.ogrenci_id, ot.test_id, o.ad, o.soyad, o.numara, th.test_kodu, th.test_adi
+     FROM ogrenci_testleri ot
+     JOIN ogrenciler o ON ot.ogrenci_id = o.id
+     JOIN test_havuzu th ON ot.test_id = th.id
+     WHERE ot.durum = 'tamamlandi' AND (ot.puan IS NULL OR ot.dogru_sayisi IS NULL)`,
+    (err, testler) => {
+      if (err) {
+        return res.json({ success: false, message: 'Sorgu hatası: ' + err.message });
+      }
+      
+      if (testler.length === 0) {
+        return res.json({ success: true, message: 'Güncellenecek test bulunamadı.', guncellenen: 0 });
+      }
+      
+      let tamamlanan = 0;
+      let hatalar = [];
+      
+      testler.forEach((test, index) => {
+        Test.testSonucuHesapla(test.ogrenci_id, test.test_id, (err, sonuc) => {
+          if (err) {
+            hatalar.push(`${test.numara} - ${test.test_kodu}: ${err.message}`);
+          } else {
+            // Sonuçları güncelle
+            db.query(
+              `UPDATE ogrenci_testleri 
+               SET puan = ?, dogru_sayisi = ?, yanlis_sayisi = ?, bos_sayisi = ?
+               WHERE ogrenci_id = ? AND test_id = ?`,
+              [sonuc.puan, sonuc.dogru, sonuc.yanlis, sonuc.bos, test.ogrenci_id, test.test_id],
+              (err) => {
+                if (err) {
+                  hatalar.push(`${test.numara} - ${test.test_kodu}: Güncelleme hatası`);
+                }
+                tamamlanan++;
+                
+                // Son test işlendiyse sonucu döndür
+                if (tamamlanan === testler.length) {
+                  res.json({
+                    success: true,
+                    message: `${testler.length - hatalar.length} test sonucu güncellendi.`,
+                    guncellenen: testler.length - hatalar.length,
+                    hatalar: hatalar
+                  });
+                }
+              }
+            );
+          }
+        });
+      });
+    }
+  );
+});
+
+// ==================== K12NET SSO ENDPOINTS ====================
+
+// SSO Login - Kullanıcıyı K12NET login sayfasına yönlendir
+router.get('/sso/login', function(req, res, next) {
+  // K12NET SSO giriş denemesi logla
+  req.systemLogger.log({
+    userType: 'system',
+    actionType: 'k12net_login_initiated',
+    actionCategory: 'auth',
+    actionDescription: 'K12NET SSO giriş işlemi başlatıldı',
+    ipAddress: req.systemLogger.getClientIP(req),
+    userAgent: req.get('User-Agent'),
+    method: req.method,
+    url: req.originalUrl
+  }).catch(console.error);
+  
+  const authUrl = K12NetSSO.getAuthorizationUrl();
+  res.redirect(authUrl);
+});
+
+// SSO Callback - K12NET'ten dönüş (Ana /sso endpoint'i)
+router.get('/sso', async function(req, res, next) {
+  const authorizationCode = req.query.code;
+  const error = req.query.error;
+  
+  // K12NET callback logla
+  req.systemLogger.log({
+    userType: 'system',
+    actionType: 'k12net_callback_received',
+    actionCategory: 'auth',
+    actionDescription: 'K12NET SSO callback alındı',
+    ipAddress: req.systemLogger.getClientIP(req),
+    userAgent: req.get('User-Agent'),
+    method: req.method,
+    url: req.originalUrl,
+    requestData: { hasCode: !!authorizationCode, hasError: !!error }
+  }).catch(console.error);
+  
+  // Hata varsa
+  if (error) {
+    console.error('SSO Authorization hatası:', error);
+    
+    // K12NET hata logla
+    req.systemLogger.log({
+      userType: 'system',
+      actionType: 'k12net_auth_failed',
+      actionCategory: 'auth',
+      actionDescription: 'K12NET SSO authorization hatası',
+      ipAddress: req.systemLogger.getClientIP(req),
+      errorMessage: error,
+      additionalData: { errorCode: error }
+    }).catch(console.error);
+    
+    return res.render('error', {
+      message: 'SSO girişinde hata oluştu',
+      error: { status: 401, stack: error }
+    });
+  }
+  
+  // Authorization code yoksa
+  if (!authorizationCode) {
+    return res.render('error', {
+      message: 'Authorization code bulunamadı',
+      error: { status: 400, stack: 'No authorization code received' }
+    });
+  }
+  
+  try {
+    // 1. Authorization code ile access token al
+    const tokenResult = await K12NetSSO.exchangeCodeForToken(authorizationCode);
+    
+    console.log('\n=== TOKEN RESPONSE ===');
+    console.log(JSON.stringify(tokenResult, null, 2));
+    
+    if (!tokenResult.success) {
+      throw new Error('Token alınamadı: ' + JSON.stringify(tokenResult.error));
+    }
+    
+    const accessToken = tokenResult.data.access_token;
+    
+    // 2. Access token ile kullanıcı bilgilerini al
+    const userInfoResult = await K12NetSSO.getUserInfo(accessToken);
+    
+    console.log('\n=== USER INFO RESPONSE ===');
+    console.log(JSON.stringify(userInfoResult, null, 2));
+    
+    if (!userInfoResult.success) {
+      throw new Error('Kullanıcı bilgisi alınamadı: ' + JSON.stringify(userInfoResult.error));
+    }
+    
+    const userInfo = userInfoResult.data;
+    
+    // 3. Kullanıcı profili kontrolü - Sadece Student kabul ediyoruz
+    if (userInfo.profile !== 'Student') {
+      return res.render('error', {
+        message: 'Yetkilendirme Hatası',
+        error: { 
+          status: 403, 
+          stack: 'Bu sistem sadece öğrenciler içindir. Profil türünüz: ' + userInfo.profile 
+        }
+      });
+    }
+    
+    // 4. API access token al (ek bilgiler için)
+    const apiTokenResult = await K12NetSSO.getApiAccessToken();
+    
+    console.log('\n=== API TOKEN RESPONSE ===');
+    console.log(JSON.stringify(apiTokenResult, null, 2));
+    
+    if (!apiTokenResult.success) {
+      console.error('API token alınamadı:', apiTokenResult.error);
+      // API token alınamazsa devam et, sadece temel bilgilerle giriş yap
+    }
+    
+    const apiAccessToken = apiTokenResult.accessToken;
+    
+    // 5. Öğrenci detay bilgilerini al
+    let studentDetails = null;
+    let studentDemographics = null;
+    
+    if (apiAccessToken) {
+      const studentInfoResult = await K12NetSSO.getStudentInfo(userInfo.ID, apiAccessToken);
+      console.log('\n=== STUDENT INFO RESPONSE ===');
+      console.log(JSON.stringify(studentInfoResult, null, 2));
+      
+      if (studentInfoResult.success) {
+        studentDetails = studentInfoResult.data;
+      }
+      
+      const demographicsResult = await K12NetSSO.getStudentDemographics(userInfo.ID, apiAccessToken);
+      console.log('\n=== STUDENT DEMOGRAPHICS RESPONSE ===');
+      console.log(JSON.stringify(demographicsResult, null, 2));
+      
+      if (demographicsResult.success) {
+        studentDemographics = demographicsResult.data;
+      }
+    }
+    
+    // 6. Öğrenciyi veritabanında bul veya oluştur
+    const db = require('../database');
+    const k12netId = userInfo.ID;
+    const studentNumber = userInfo.sub; // K12NET'ten gelen öğrenci numarası
+    
+    console.log('\n=== DATABASE SEARCH ===');
+    console.log('K12NET ID:', k12netId);
+    console.log('Student Number:', studentNumber);
+    
+    // Veritabanında K12NET ID ile öğrenci ara
+    db.query(
+      'SELECT * FROM ogrenciler WHERE k12net_id = ?',
+      [k12netId],
+      (err, results) => {
+        if (err) {
+          console.error('Veritabanı hatası:', err);
+          return res.render('error', {
+            message: 'Veritabanı hatası',
+            error: { status: 500, stack: err.message }
+          });
+        }
+        
+        if (results.length > 0) {
+          // Öğrenci zaten var, session'a al ve yönlendir
+          const ogrenci = results[0];
+          req.session.ogrenci = {
+            id: ogrenci.id,
+            numara: ogrenci.numara,
+            ad: ogrenci.ad,
+            soyad: ogrenci.soyad,
+            k12net_id: ogrenci.k12net_id
+          };
+          
+          // K12NET başarılı giriş logla
+          req.systemLogger.logStudentAuth('k12net_auth', ogrenci.id, req, {
+            k12netId: k12netId,
+            studentNumber: studentNumber,
+            studentName: `${ogrenci.ad} ${ogrenci.soyad}`,
+            existingUser: true
+          }).catch(console.error);
+          
+          return res.redirect('/');
+        } else {
+          // Yeni öğrenci, kaydet
+          // fullName'den ad ve soyad ayır
+          let ad = 'K12NET';
+          let soyad = 'Öğrenci';
+          
+          if (studentDetails?.fullName) {
+            const nameParts = studentDetails.fullName.trim().split(' ');
+            if (nameParts.length >= 2) {
+              ad = nameParts[0];
+              soyad = nameParts.slice(1).join(' ');
+            } else if (nameParts.length === 1) {
+              ad = nameParts[0];
+              soyad = '';
+            }
+          }
+          
+          // Öğrenci numarası enrollment.localId'den al
+          let ogrenciNumarasi = null;
+          
+          if (studentDetails?.enrollment?.localId) {
+            ogrenciNumarasi = studentDetails.enrollment.localId;
+            
+            console.log('\n=== CHECKING EXISTING STUDENT BY localId ===');
+            console.log('Local ID:', ogrenciNumarasi);
+            
+            // Bu numara ile kayıtlı öğrenci var mı kontrol et
+            db.query(
+              'SELECT * FROM ogrenciler WHERE numara = ?',
+              [ogrenciNumarasi],
+              (err, existingStudents) => {
+                if (err) {
+                  console.error('Numara kontrolü hatası:', err);
+                  ogrenciNumarasi = 'K12-' + Date.now();
+                  kayitYap();
+                } else if (existingStudents.length > 0) {
+                  // Bu numara ile kayıtlı öğrenci var, k12net_id güncelle
+                  console.log('Bu numara ile kayıtlı öğrenci bulundu, K12NET ID güncelleniyor...');
+                  
+                  db.query(
+                    'UPDATE ogrenciler SET k12net_id = ?, ad = ?, soyad = ? WHERE numara = ?',
+                    [k12netId, ad, soyad, ogrenciNumarasi],
+                    (err) => {
+                      if (err) {
+                        console.error('Öğrenci güncelleme hatası:', err);
+                        return res.render('error', {
+                          message: 'Öğrenci güncellenemedi',
+                          error: { status: 500, stack: err.message }
+                        });
+                      }
+                      
+                      // Güncellenen öğrenciyi session'a al
+                      req.session.ogrenci = {
+                        id: existingStudents[0].id,
+                        numara: ogrenciNumarasi,
+                        ad: ad,
+                        soyad: soyad,
+                        k12net_id: k12netId
+                      };
+                      
+                      return res.redirect('/');
+                    }
+                  );
+                } else {
+                  // Bu numara ile öğrenci yok, yeni kayıt oluştur
+                  kayitYap();
+                }
+              }
+            );
+          } else {
+            // localId yoksa random numara oluştur
+            ogrenciNumarasi = 'K12-' + Date.now();
+            kayitYap();
+          }
+          
+          function kayitYap() {
+            // Şifre K12NET ID'den MD5 hash oluştur
+            const crypto = require('crypto');
+            const sifre = crypto.createHash('md5').update(k12netId).digest('hex');
+            
+            console.log('\n=== CREATING NEW STUDENT ===');
+            console.log('Numara:', ogrenciNumarasi);
+            console.log('Ad:', ad);
+            console.log('Soyad:', soyad);
+            console.log('K12NET ID:', k12netId);
+            
+            db.query(
+              'INSERT INTO ogrenciler (numara, ad, soyad, sifre, k12net_id) VALUES (?, ?, ?, ?, ?)',
+              [ogrenciNumarasi, ad, soyad, sifre, k12netId],
+              (err, result) => {
+                if (err) {
+                  console.error('Öğrenci kayıt hatası:', err);
+                  return res.render('error', {
+                    message: 'Öğrenci kaydedilemedi',
+                    error: { status: 500, stack: err.message }
+                  });
+                }
+                
+                // Yeni oluşturulan öğrenciyi session'a al
+                req.session.ogrenci = {
+                  id: result.insertId,
+                  numara: ogrenciNumarasi,
+                  ad: ad,
+                  soyad: soyad,
+                  k12net_id: k12netId
+                };
+                
+                // Yeni K12NET öğrenci kaydı logla
+                req.systemLogger.logStudentAuth('k12net_auth', result.insertId, req, {
+                  k12netId: k12netId,
+                  studentNumber: ogrenciNumarasi,
+                  studentName: `${ad} ${soyad}`,
+                  existingUser: false,
+                  newRegistration: true
+                }).catch(console.error);
+                
+                return res.redirect('/');
+              }
+            );
+          }
+        }
+      }
+    );
+
+    
+  } catch (error) {
+    console.error('SSO Callback hatası:', error);
+    
+    // K12NET genel hata logla
+    req.systemLogger.log({
+      userType: 'system',
+      actionType: 'k12net_callback_error',
+      actionCategory: 'error',
+      actionDescription: 'K12NET SSO callback sırasında hata oluştu',
+      ipAddress: req.systemLogger.getClientIP(req),
+      errorMessage: error.message,
+      additionalData: { errorStack: error.stack }
+    }).catch(console.error);
+    
+    res.render('error', {
+      message: 'SSO işlemi sırasında hata oluştu',
+      error: { status: 500, stack: error.message }
+    });
+  }
+});
+
+// SSO ile giriş yapmış öğrenci bilgilerini göster (test/debug için)
+router.get('/sso/profile', authMiddleware, async function(req, res, next) {
+  const ogrenci = req.session.ogrenci;
+  
+  if (!ogrenci.k12net_id) {
+    return res.json({
+      message: 'Bu öğrenci K12NET SSO ile giriş yapmamış',
+      ogrenci: ogrenci
+    });
+  }
+  
+  try {
+    // API access token al
+    const apiTokenResult = await K12NetSSO.getApiAccessToken();
+    
+    if (!apiTokenResult.success) {
+      throw new Error('API token alınamadı');
+    }
+    
+    const apiAccessToken = apiTokenResult.accessToken;
+    
+    // Öğrenci bilgilerini al
+    const studentInfo = await K12NetSSO.getStudentInfo(ogrenci.k12net_id, apiAccessToken);
+    const demographics = await K12NetSSO.getStudentDemographics(ogrenci.k12net_id, apiAccessToken);
+    const enrollments = await K12NetSSO.getStudentEnrollments(ogrenci.k12net_id, apiAccessToken);
+    
+    res.json({
+      message: 'K12NET SSO Profil Bilgileri',
+      session: ogrenci,
+      k12net: {
+        studentInfo: studentInfo.success ? studentInfo.data : null,
+        demographics: demographics.success ? demographics.data : null,
+        enrollments: enrollments.success ? enrollments.data : null
+      }
+    });
+    
+  } catch (error) {
+    res.json({
+      message: 'K12NET bilgileri alınırken hata oluştu',
+      error: error.message,
+      ogrenci: ogrenci
+    });
+  }
+});
+
+// Video izleme sayıları API
+router.get('/api/video-izleme-sayilari', authMiddleware, async function(req, res) {
+  try {
+    const { test_id } = req.query;
+    
+    if (!test_id) {
+      return res.json({ success: false, message: 'Test ID gerekli' });
+    }
+
+    const db = req.app.get('db');
+    
+    // Bu test için video izleme sayılarını getir
+    const query = `
+      SELECT 
+        vi.soru_no,
+        COUNT(DISTINCT vi.id) as izleme_sayisi,
+        SUM(CASE WHEN vid.tam_izlendi = 1 THEN 1 ELSE 0 END) as tam_izleme_sayisi
+      FROM video_izleme vi
+      LEFT JOIN video_izleme_detay vid ON vi.id = vid.video_izleme_id
+      WHERE vi.test_id = ? AND vi.ogrenci_id = ?
+      GROUP BY vi.soru_no
+      ORDER BY vi.soru_no
+    `;
+    
+    const sayilar = await db.query(query, [test_id, req.session.ogrenci.id]);
+    
+    res.json({
+      success: true,
+      sayilar: sayilar
+    });
+    
+  } catch (error) {
+    console.error('Video izleme sayıları alma hatası:', error);
+    res.json({
+      success: false,
+      message: 'Video izleme sayıları alınamadı'
+    });
+  }
 });
 
 module.exports = router;
+

@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Öğrenci Detay - <%= ogrenci.ad %> <%= ogrenci.soyad %></title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f0f2f5;
+      min-height: 100vh;
+    }
+    
+    .header {
+      background: linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #7e22ce 100%);
+      color: white;
+      padding: 20px 0;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    .header-content {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 0 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .btn-back {
+      background: rgba(255,255,255,0.2);
+      color: white;
+      border: 2px solid white;
+      padding: 10px 20px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+    
+    .btn-back:hover {
+      background: white;
+      color: #7e22ce;
+    }
+    
+    .container {
+      max-width: 1400px;
+      margin: 30px auto;
+      padding: 0 30px;
+    }
+    
+    .student-header {
+      background: white;
+      border-radius: 15px;
+      padding: 30px;
+      margin-bottom: 30px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+    }
+    
+    .student-info {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+      margin-top: 20px;
+    }
+    
+    .info-item {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .info-label {
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 5px;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+    
+    .info-value {
+      font-size: 18px;
+      color: #333;
+      font-weight: 700;
+    }
+    
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 15px;
+      margin-bottom: 30px;
+    }
+    
+    .stat-card {
+      background: white;
+      border-radius: 12px;
+      padding: 18px;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+      text-align: center;
+    }
+    
+    .stat-icon {
+      font-size: 28px;
+      margin-bottom: 8px;
+    }
+    
+    .stat-value {
+      font-size: 24px;
+      font-weight: 700;
+      color: #7e22ce;
+      margin-bottom: 4px;
+    }
+    
+    .stat-label {
+      font-size: 12px;
+      color: #666;
+      font-weight: 600;
+    }
+    
+    .section-title {
+      font-size: 24px;
+      font-weight: 700;
+      color: #333;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 3px solid #7e22ce;
+    }
+    
+    .test-card {
+      background: white;
+      border-radius: 15px;
+      padding: 25px;
+      margin-bottom: 20px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+      transition: transform 0.3s;
+    }
+    
+    .test-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+    }
+    
+    .test-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      margin-bottom: 15px;
+      padding-bottom: 15px;
+      border-bottom: 2px solid #f0f0f0;
+    }
+    
+    .test-title {
+      flex: 1;
+    }
+    
+    .test-name {
+      font-size: 18px;
+      font-weight: 700;
+      color: #333;
+      margin-bottom: 5px;
+    }
+    
+    .test-code {
+      font-size: 14px;
+      color: #7e22ce;
+      font-weight: 600;
+    }
+    
+    .test-details {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 15px;
+    }
+    
+    .detail-item {
+      text-align: center;
+      padding: 10px;
+      background: #f8f9fa;
+      border-radius: 8px;
+    }
+    
+    .detail-label {
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 5px;
+    }
+    
+    .detail-value {
+      font-size: 18px;
+      font-weight: 700;
+      color: #333;
+    }
+    
+    .badge {
+      display: inline-block;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    
+    .badge-success {
+      background: #d4edda;
+      color: #155724;
+    }
+    
+    .badge-warning {
+      background: #fff3cd;
+      color: #856404;
+    }
+    
+    .badge-danger {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    
+    .badge-info {
+      background: #d1ecf1;
+      color: #0c5460;
+    }
+    
+    .no-data {
+      text-align: center;
+      padding: 60px 20px;
+      color: #999;
+      font-size: 18px;
+    }
+    
+    .score-high {
+      color: #28a745;
+      font-weight: 700;
+    }
+    
+    .score-medium {
+      color: #ffc107;
+      font-weight: 700;
+    }
+    
+    .score-low {
+      color: #dc3545;
+      font-weight: 700;
+    }
+    
+    .k12net-badge {
+      display: inline-block;
+      background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+      color: white;
+      padding: 4px 10px;
+      border-radius: 15px;
+      font-size: 11px;
+      font-weight: 600;
+      margin-left: 10px;
+    }
+    
+    .test-name-clickable {
+      color: #7e22ce;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.3s;
+    }
+    
+    .test-name-clickable:hover {
+      color: #5a189a;
+      text-decoration: underline;
+    }
+    
+    /* Modal Styles */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(5px);
+    }
+    
+    .modal-content {
+      background-color: #fefefe;
+      margin: 2% auto;
+      padding: 0;
+      border: none;
+      border-radius: 15px;
+      width: 90%;
+      max-width: 1200px;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+    
+    .modal-header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 20px 30px;
+      border-radius: 15px 15px 0 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .modal-title {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 700;
+    }
+    
+    .close {
+      color: white;
+      font-size: 32px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    .close:hover {
+      transform: scale(1.2);
+    }
+    
+    .modal-body {
+      padding: 30px;
+    }
+    
+    .answer-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    
+    .answer-item {
+      background: white;
+      border: 3px solid #e9ecef;
+      border-radius: 12px;
+      padding: 15px;
+      text-align: center;
+      font-weight: 600;
+      position: relative;
+      transition: all 0.3s ease;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .answer-item:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+    }
+    
+    .answer-correct {
+      background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+      border-color: #28a745;
+      color: #155724;
+    }
+    
+    .answer-wrong {
+      background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+      border-color: #dc3545;
+      color: #721c24;
+    }
+    
+    .answer-empty {
+      background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+      border-color: #6c757d;
+      color: #6c757d;
+    }
+    
+    .answer-number {
+      font-size: 11px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      opacity: 0.8;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .answer-choice {
+      font-size: 24px;
+      font-weight: 900;
+      margin-bottom: 8px;
+      background: rgba(255,255,255,0.7);
+      width: 35px;
+      height: 35px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 8px auto;
+    }
+    
+    .answer-comparison {
+      font-size: 11px;
+      margin-top: 8px;
+      text-align: center;
+    }
+    
+    .student-answer {
+      background: rgba(255,255,255,0.9);
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      display: inline-block;
+    }
+
+    .video-stats-mini {
+      background: rgba(255,255,255,0.9);
+      border-radius: 8px;
+      padding: 6px 8px;
+      margin-top: 6px;
+      font-size: 10px;
+      line-height: 1.2;
+    }
+
+    .video-watch-info {
+      color: #28a745;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    .video-duration {
+      color: #666;
+      margin-bottom: 2px;
+    }
+
+    .video-date {
+      color: #999;
+      font-size: 9px;
+    }
+
+    .video-not-watched {
+      background: rgba(220,53,69,0.1);
+      color: #721c24;
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 10px;
+      margin-top: 6px;
+    }
+    
+    .legend {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+      padding: 15px;
+      background: #f8f9fa;
+      border-radius: 10px;
+    }
+    
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    
+    .legend-box {
+      width: 20px;
+      height: 20px;
+      border-radius: 4px;
+      border: 2px solid;
+    }
+
+    /* Video İstatistikleri Panel Tasarımı */
+    .video-stats-panel {
+      background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+      border: 2px solid #ffc107;
+      border-radius: 15px;
+      padding: 20px;
+      margin-bottom: 25px;
+      box-shadow: 0 4px 15px rgba(255,193,7,0.2);
+    }
+
+    .video-stats-title {
+      color: #856404;
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .video-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 12px;
+    }
+
+    .video-stat-card {
+      background: white;
+      border-radius: 12px;
+      padding: 15px 10px;
+      text-align: center;
+      border: 2px solid rgba(255,193,7,0.3);
+      transition: all 0.3s ease;
+    }
+
+    .video-stat-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 20px rgba(255,193,7,0.25);
+      border-color: #ffc107;
+    }
+
+    .video-stat-number {
+      font-size: 22px;
+      font-weight: 900;
+      margin-bottom: 5px;
+      background: linear-gradient(135deg, #28a745, #20c997);
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .video-stat-label {
+      font-size: 10px;
+      color: #666;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Test Özeti Panel İyileştirmesi */
+    .test-summary-panel {
+      background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+      border: 2px solid #2196f3;
+      border-radius: 15px;
+      padding: 20px;
+      margin-bottom: 25px;
+      box-shadow: 0 4px 15px rgba(33,150,243,0.2);
+    }
+
+    .test-summary-title {
+      color: #1565c0;
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .test-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+      gap: 12px;
+    }
+
+    .test-summary-item {
+      background: white;
+      border-radius: 12px;
+      padding: 12px 8px;
+      text-align: center;
+      border: 2px solid rgba(33,150,243,0.2);
+    }
+
+    .test-summary-value {
+      font-size: 18px;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+
+    .test-summary-label {
+      font-size: 10px;
+      color: #666;
+      font-weight: 600;
+    }
+
+    /* Soru Başlığı İyileştirmesi */
+    .section-title-main {
+      color: #495057;
+      font-size: 20px;
+      font-weight: 700;
+      margin: 25px 0 20px 0;
+      padding-bottom: 10px;
+      border-bottom: 3px solid #e9ecef;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-content">
+      <h1>👤 Öğrenci Detay</h1>
+      <a href="/admin/istatistikler" class="btn-back">← İstatistiklere Dön</a>
+    </div>
+  </div>
+  
+  <!-- Cevap Detay Modal -->
+  <div id="answerModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title" id="modalTitle">Test Detayları</h2>
+        <span class="close" onclick="closeModal()">&times;</span>
+      </div>
+      <div class="modal-body">
+        <div class="legend">
+          <div class="legend-item">
+            <div class="legend-box answer-correct"></div>
+            <span>Doğru Cevap</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-box answer-wrong"></div>
+            <span>Yanlış Cevap</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-box answer-empty"></div>
+            <span>Boş Bırakılan</span>
+          </div>
+        </div>
+        
+        <div id="answerDetails">
+          <!-- Cevap detayları buraya yüklenecek -->
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="container">
+    <div class="student-header">
+      <h2>
+        <%= ogrenci.ad %> <%= ogrenci.soyad %>
+        <% if (ogrenci.k12net_id) { %>
+          <span class="k12net-badge">🔐 K12NET</span>
+        <% } %>
+      </h2>
+      <div class="student-info">
+        <div class="info-item">
+          <div class="info-label">Öğrenci Numarası</div>
+          <div class="info-value"><%= ogrenci.numara %></div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Kayıt Tarihi</div>
+          <div class="info-value"><%= new Date(ogrenci.created_at).toLocaleDateString('tr-TR') %></div>
+        </div>
+        <% if (ogrenci.k12net_id) { %>
+          <div class="info-item">
+            <div class="info-label">K12NET ID</div>
+            <div class="info-value" style="font-size: 12px; word-break: break-all;"><%= ogrenci.k12net_id %></div>
+          </div>
+        <% } %>
+      </div>
+    </div>
+    
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon">📚</div>
+        <div class="stat-value"><%= istatistikler.toplamTest %></div>
+        <div class="stat-label">Toplam Test</div>
+      </div>
+      
+      <div class="stat-card">
+        <div class="stat-icon">✅</div>
+        <div class="stat-value"><%= istatistikler.tamamlanan %></div>
+        <div class="stat-label">Tamamlanan</div>
+      </div>
+      
+      <div class="stat-card">
+        <div class="stat-icon">⏳</div>
+        <div class="stat-value"><%= istatistikler.devamEden %></div>
+        <div class="stat-label">Devam Eden</div>
+      </div>
+      
+      <div class="stat-card">
+        <div class="stat-icon">⏸️</div>
+        <div class="stat-value"><%= istatistikler.bekleyen %></div>
+        <div class="stat-label">Bekleyen</div>
+      </div>
+      
+      <div class="stat-card">
+        <div class="stat-icon">📊</div>
+        <div class="stat-value <%= istatistikler.ortalamaPuan >= 70 ? 'score-high' : (istatistikler.ortalamaPuan >= 50 ? 'score-medium' : 'score-low') %>">
+          <%= istatistikler.ortalamaPuan %>
+        </div>
+        <div class="stat-label">Ortalama Puan</div>
+      </div>
+      
+      <div class="stat-card">
+        <div class="stat-icon">🎯</div>
+        <div class="stat-value" style="color: #17a2b8;">
+          <%= istatistikler.enYuksekPuan || '-' %>
+        </div>
+        <div class="stat-label">En Yüksek Puan</div>
+      </div>
+      
+      <div class="stat-card">
+        <div class="stat-icon">📈</div>
+        <div class="stat-value" style="color: #7e22ce;">
+          <%= istatistikler.toplamSoru || 0 %>
+        </div>
+        <div class="stat-label">Toplam Soru</div>
+      </div>
+      
+      <div class="stat-card">
+        <div class="stat-icon">✔️</div>
+        <div class="stat-value" style="color: #28a745;"><%= istatistikler.toplamDogru %></div>
+        <div class="stat-label">Toplam Doğru</div>
+      </div>
+      
+      <div class="stat-card">
+        <div class="stat-icon">❌</div>
+        <div class="stat-value" style="color: #dc3545;"><%= istatistikler.toplamYanlis %></div>
+        <div class="stat-label">Toplam Yanlış</div>
+      </div>
+      
+      <div class="stat-card">
+        <div class="stat-icon">⚪</div>
+        <div class="stat-value" style="color: #6c757d;"><%= istatistikler.toplamBos %></div>
+        <div class="stat-label">Toplam Boş</div>
+      </div>
+      
+      <div class="stat-card">
+        <div class="stat-icon">🎯</div>
+        <div class="stat-value" style="color: #28a745; font-weight: 700;">
+          <%= istatistikler.basariOrani %>%
+        </div>
+        <div class="stat-label">Başarı Oranı</div>
+      </div>
+      
+      <div class="stat-card">
+        <div class="stat-icon">📊</div>
+        <div class="stat-value" style="color: #fd7e14; font-weight: 700;">
+          <%= istatistikler.dogruOrani %>%
+        </div>
+        <div class="stat-label">Doğru Oranı</div>
+      </div>
+      
+      <div class="stat-card">
+        <div class="stat-icon">⌛</div>
+        <div class="stat-value" style="color: #6f42c1;">
+          <%= istatistikler.ortalamaSure || '-' %>
+        </div>
+        <div class="stat-label">Ort. Süre (dk)</div>
+      </div>
+      
+      <div class="stat-card">
+        <div class="stat-icon">🏆</div>
+        <div class="stat-value" style="color: #ffc107; font-weight: 700;">
+          <%= istatistikler.basariSeviyesi %>
+        </div>
+        <div class="stat-label">Başarı Seviyesi</div>
+      </div>
+    </div>
+    
+    <div class="section-title">📝 Test Geçmişi</div>
+    
+    <% if (testler.length > 0) { %>
+      <% testler.forEach(function(test) { 
+        let durumBadge = '';
+        if (test.durum === 'tamamlandi') {
+          durumBadge = '<span class="badge badge-success">✅ Tamamlandı</span>';
+        } else if (test.durum === 'devam_ediyor') {
+          durumBadge = '<span class="badge badge-warning">⏳ Devam Ediyor</span>';
+        } else {
+          durumBadge = '<span class="badge badge-info">⏸️ Beklemede</span>';
+        }
+        
+        const puan = test.puan ? parseFloat(test.puan).toFixed(2) : '-';
+        let puanClass = '';
+        if (test.puan) {
+          if (test.puan >= 70) puanClass = 'score-high';
+          else if (test.puan >= 50) puanClass = 'score-medium';
+          else puanClass = 'score-low';
+        }
+      %>
+        <div class="test-card">
+          <div class="test-header">
+            <div class="test-title">
+              <div class="test-name">
+                <% if (test.durum === 'tamamlandi') { %>
+                  <span class="test-name-clickable" onclick="showAnswerDetails('<%= test.id %>', '<%= test.gorunen_test_adi %>', '<%= test.test_kodu %>')">
+                    <%= test.gorunen_test_adi %>
+                  </span>
+                <% } else { %>
+                  <%= test.gorunen_test_adi %>
+                <% } %>
+              </div>
+              <div class="test-code">🔑 <%= test.test_kodu %></div>
+            </div>
+            <div>
+              <%- durumBadge %>
+            </div>
+          </div>
+          
+          <div class="test-details">
+            <div class="detail-item">
+              <div class="detail-label">Soru Sayısı</div>
+              <div class="detail-value"><%= test.soru_sayisi %></div>
+            </div>
+            
+            <div class="detail-item">
+              <div class="detail-label">Puan</div>
+              <div class="detail-value <%= puanClass %>"><%= puan %></div>
+            </div>
+            
+            <div class="detail-item">
+              <div class="detail-label">Doğru</div>
+              <div class="detail-value" style="color: #28a745;"><%= test.dogru_sayisi || 0 %></div>
+            </div>
+            
+            <div class="detail-item">
+              <div class="detail-label">Yanlış</div>
+              <div class="detail-value" style="color: #dc3545;"><%= test.yanlis_sayisi || 0 %></div>
+            </div>
+            
+            <div class="detail-item">
+              <div class="detail-label">Boş</div>
+              <div class="detail-value" style="color: #6c757d;"><%= test.bos_sayisi || 0 %></div>
+            </div>
+            
+            <div class="detail-item">
+              <div class="detail-label">Atanma Tarihi</div>
+              <div class="detail-value" style="font-size: 14px;">
+                <%= new Date(test.atanma_tarihi).toLocaleDateString('tr-TR') %>
+              </div>
+            </div>
+            
+            <% if (test.tamamlanma_tarihi) { %>
+              <div class="detail-item">
+                <div class="detail-label">Tamamlanma Tarihi</div>
+                <div class="detail-value" style="font-size: 14px;">
+                  <%= new Date(test.tamamlanma_tarihi).toLocaleDateString('tr-TR') %>
+                </div>
+              </div>
+            <% } %>
+          </div>
+        </div>
+      <% }); %>
+    <% } else { %>
+      <div class="no-data">
+        📭 Bu öğrenciye henüz test atanmamış.
+      </div>
+    <% } %>
+  </div>
+  
+  <script>
+    function showAnswerDetails(testId, testAdi, testKodu) {
+      document.getElementById('modalTitle').textContent = `${testAdi} (${testKodu}) - Cevap Detayları`;
+      
+      // Modal'ı aç
+      document.getElementById('answerModal').style.display = 'block';
+      
+      // Loading göster
+      document.getElementById('answerDetails').innerHTML = `
+        <div style="text-align: center; padding: 40px;">
+          <div style="font-size: 24px; margin-bottom: 10px;">🔄</div>
+          <div>Cevaplar yükleniyor...</div>
+        </div>
+      `;
+      
+      // Test cevaplarını getir
+      fetch('/admin/test-cevaplari/' + testId, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          displayAnswers(data.cevaplar, data.cevapAnahtari, data.testBilgisi, data.videoIstatistikleri);
+        } else {
+          document.getElementById('answerDetails').innerHTML = `
+            <div style="text-align: center; padding: 40px; color: #dc3545;">
+              <div style="font-size: 24px; margin-bottom: 10px;">❌</div>
+              <div>${data.message}</div>
+            </div>
+          `;
+        }
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        document.getElementById('answerDetails').innerHTML = `
+          <div style="text-align: center; padding: 40px; color: #dc3545;">
+            <div style="font-size: 24px; margin-bottom: 10px;">❌</div>
+            <div>Cevaplar yüklenirken hata oluştu.</div>
+          </div>
+        `;
+      });
+    }
+    
+    function displayAnswers(ogrenciCevaplari, cevapAnahtari, testBilgisi, videoIstatistikleri = {}) {
+      let html = `
+        <div class="test-summary-panel">
+          <div class="test-summary-title">📊 Test Özeti</div>
+          <div class="test-summary-grid">
+            <div class="test-summary-item">
+              <div class="test-summary-value">${testBilgisi.soruSayisi}</div>
+              <div class="test-summary-label">Soru Sayısı</div>
+            </div>
+            <div class="test-summary-item">
+              <div class="test-summary-value" style="color: #28a745;">${testBilgisi.dogru}</div>
+              <div class="test-summary-label">Doğru</div>
+            </div>
+            <div class="test-summary-item">
+              <div class="test-summary-value" style="color: #dc3545;">${testBilgisi.yanlis}</div>
+              <div class="test-summary-label">Yanlış</div>
+            </div>
+            <div class="test-summary-item">
+              <div class="test-summary-value" style="color: #6c757d;">${testBilgisi.bos}</div>
+              <div class="test-summary-label">Boş</div>
+            </div>
+            <div class="test-summary-item">
+              <div class="test-summary-value" style="color: #7e22ce;">${testBilgisi.puan}</div>
+              <div class="test-summary-label">Puan</div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Video istatistikleri özeti
+      if (videoIstatistikleri && Object.keys(videoIstatistikleri).length > 0) {
+        const videoKeys = Object.keys(videoIstatistikleri);
+        const toplamIzlenen = videoKeys.length;
+        const toplamSure = videoKeys.reduce((total, key) => total + (videoIstatistikleri[key].toplamSure || 0), 0);
+        const toplamIzlemeAdeti = videoKeys.reduce((total, key) => total + (videoIstatistikleri[key].izlenmeSayisi || 0), 0);
+        
+        html += `
+          <div class="video-stats-panel">
+            <div class="video-stats-title">🎥 Video İzleme İstatistikleri</div>
+            <div class="video-stats-grid">
+              <div class="video-stat-card">
+                <div class="video-stat-number">${toplamIzlenen}</div>
+                <div class="video-stat-label">Video İzlenen</div>
+              </div>
+              <div class="video-stat-card">
+                <div class="video-stat-number" style="color: #17a2b8;">${toplamIzlemeAdeti}</div>
+                <div class="video-stat-label">Toplam İzleme</div>
+              </div>
+              <div class="video-stat-card">
+                <div class="video-stat-number" style="color: #fd7e14;">${Math.floor(toplamSure / 60)}dk</div>
+                <div class="video-stat-label">Toplam Süre</div>
+              </div>
+              <div class="video-stat-card">
+                <div class="video-stat-number" style="color: #6f42c1;">${toplamIzlenen > 0 ? Math.round(toplamSure / toplamIzlenen / 60 * 10) / 10 : 0}dk</div>
+                <div class="video-stat-label">Ortalama Süre</div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+      
+      html += `
+        <div class="section-title-main">📝 Soru Bazında Cevap Karşılaştırması</div>
+        <div class="answer-grid">
+      `;
+      
+      for (let i = 1; i <= testBilgisi.soruSayisi; i++) {
+        const ogrenciCevap = ogrenciCevaplari[i] || null;
+        const dogruCevap = cevapAnahtari[i] || null;
+        
+        let cssClass = 'answer-empty';
+        let status = 'Boş';
+        
+        if (ogrenciCevap) {
+          if (ogrenciCevap === dogruCevap) {
+            cssClass = 'answer-correct';
+            status = 'Doğru';
+          } else {
+            cssClass = 'answer-wrong';
+            status = 'Yanlış';
+          }
+        }
+        
+        // Video bilgisi varsa ekle
+        const videoInfo = videoIstatistikleri[i];
+        let videoBilgisi = '';
+        if (videoInfo) {
+          const dakika = Math.floor(videoInfo.toplamSure / 60);
+          const saniye = videoInfo.toplamSure % 60;
+          videoBilgisi = `
+            <div class="video-stats-mini">
+              <div class="video-watch-info">🎥 ${videoInfo.izlenmeSayisi}x izlendi</div>
+              <div class="video-duration">⏱️ ${dakika}dk ${saniye}sn</div>
+              <div class="video-date">📅 ${new Date(videoInfo.sonIzleme).toLocaleDateString('tr-TR', {
+                day: '2-digit',
+                month: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+              })}</div>
+            </div>`;
+        } else if (cssClass === 'answer-wrong') {
+          videoBilgisi = `<div class="video-not-watched">📭 Video izlenmedi</div>`;
+        }
+        
+        html += `
+          <div class="answer-item ${cssClass}">
+            <div class="answer-number">Soru ${i}</div>
+            <div class="answer-choice">${dogruCevap || '-'}</div>
+            <div class="answer-comparison">
+              ${cssClass !== 'answer-correct' ? `<div class="student-answer">Ö: ${ogrenciCevap || '-'}</div>` : ''}
+              ${videoBilgisi}
+            </div>
+          </div>
+        `;
+      }
+      
+      html += '</div>';
+      
+      document.getElementById('answerDetails').innerHTML = html;
+    }
+    
+    function closeModal() {
+      document.getElementById('answerModal').style.display = 'none';
+    }
+    
+    // Modal dışına tıklanınca kapat
+    window.onclick = function(event) {
+      const modal = document.getElementById('answerModal');
+      if (event.target === modal) {
+        modal.style.display = 'none';
+      }
+    }
+    
+    // ESC tuşu ile kapat
+    document.addEventListener('keydown', function(event) {
+      if (event.key === 'Escape') {
+        closeModal();
+      }
+    });
+  </script>
+</body>
+</html>

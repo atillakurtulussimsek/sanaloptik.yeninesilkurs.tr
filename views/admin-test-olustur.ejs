@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Oluştur - Admin Panel</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f0f2f5;
+      min-height: 100vh;
+    }
+    
+    .header {
+      background: linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #7e22ce 100%);
+      color: white;
+      padding: 20px 0;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    .header-content {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .btn-back {
+      background: rgba(255,255,255,0.2);
+      color: white;
+      border: 2px solid white;
+      padding: 10px 20px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+    
+    .btn-back:hover {
+      background: white;
+      color: #7e22ce;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 30px auto;
+      padding: 0 30px;
+    }
+    
+    .form-card {
+      background: white;
+      border-radius: 15px;
+      padding: 40px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+    }
+    
+    .form-title {
+      font-size: 28px;
+      font-weight: 700;
+      color: #333;
+      margin-bottom: 10px;
+    }
+    
+    .form-subtitle {
+      color: #666;
+      margin-bottom: 30px;
+      font-size: 14px;
+    }
+    
+    .alert {
+      padding: 15px 20px;
+      border-radius: 10px;
+      margin-bottom: 25px;
+      font-weight: 500;
+    }
+    
+    .alert-success {
+      background: #d4edda;
+      color: #155724;
+      border-left: 4px solid #28a745;
+    }
+    
+    .alert-error {
+      background: #f8d7da;
+      color: #721c24;
+      border-left: 4px solid #dc3545;
+    }
+    
+    .form-section {
+      margin-bottom: 35px;
+      padding-bottom: 35px;
+      border-bottom: 2px solid #f0f0f0;
+    }
+    
+    .form-section:last-child {
+      border-bottom: none;
+    }
+    
+    .section-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #444;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .form-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+    
+    .form-group {
+      margin-bottom: 20px;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      color: #444;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    
+    .form-group input,
+    .form-group select {
+      width: 100%;
+      padding: 12px 15px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 15px;
+      transition: all 0.3s;
+      background: #f8f9fa;
+    }
+    
+    .form-group input:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: #7e22ce;
+      background: white;
+      box-shadow: 0 0 0 3px rgba(126, 34, 206, 0.1);
+    }
+    
+    .question-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    
+    .question-row {
+      display: grid;
+      grid-template-columns: 80px 1fr 2fr;
+      gap: 15px;
+      align-items: center;
+      background: #f8f9fa;
+      border: 2px solid #e9ecef;
+      border-radius: 8px;
+      padding: 12px 15px;
+      transition: all 0.3s;
+    }
+    
+    .question-row:hover {
+      border-color: #7e22ce;
+      background: #faf9fb;
+    }
+    
+    .question-number {
+      font-size: 14px;
+      font-weight: 700;
+      color: #7e22ce;
+      text-align: center;
+    }
+    
+    .input-small {
+      padding: 8px 10px !important;
+      font-size: 14px !important;
+      width: 100%;
+    }
+    
+    select.input-small {
+      cursor: pointer;
+    }
+    
+    .btn-submit {
+      width: 100%;
+      padding: 18px;
+      background: linear-gradient(135deg, #1e3c72 0%, #7e22ce 100%);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 18px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.3s;
+      margin-top: 20px;
+    }
+    
+    .btn-submit:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(126, 34, 206, 0.3);
+    }
+    
+    .help-text {
+      font-size: 12px;
+      color: #888;
+      margin-top: 5px;
+    }
+    
+    .kod-kontrol-basarili {
+      color: #28a745 !important;
+      font-weight: 600;
+    }
+    
+    .kod-kontrol-hata {
+      color: #dc3545 !important;
+      font-weight: 600;
+    }
+    
+    .kod-kontrol-bekliyor {
+      color: #ffc107 !important;
+      font-weight: 600;
+    }
+    
+    .input-basarili {
+      border-color: #28a745 !important;
+      background: #f0fff4 !important;
+    }
+    
+    .input-hata {
+      border-color: #dc3545 !important;
+      background: #fff5f5 !important;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-content">
+      <h1>➕ Test Oluştur</h1>
+      <a href="/admin/dashboard" class="btn-back">← Dashboard'a Dön</a>
+    </div>
+  </div>
+  
+  <div class="container">
+    <div class="form-card">
+      <div class="form-title">Yeni Test Oluştur</div>
+      <div class="form-subtitle">Test havuzuna yeni bir test ekleyin. Maksimum 25 soru ekleyebilirsiniz.</div>
+      
+      <% if (basari) { %>
+        <div class="alert alert-success">
+          ✅ <%= basari %>
+        </div>
+      <% } %>
+      
+      <% if (hata) { %>
+        <div class="alert alert-error">
+          ⚠️ <%= hata %>
+        </div>
+      <% } %>
+      
+      <form method="POST" action="/admin/test-olustur">
+        <div class="form-section">
+          <div class="section-title">📋 Test Bilgileri</div>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label for="test_kodu">Test Kodu *</label>
+              <input 
+                type="text" 
+                id="test_kodu" 
+                name="test_kodu" 
+                placeholder="Örn: MAT2024-001"
+                required
+                autocomplete="off"
+                style="text-transform: uppercase;"
+              >
+              <div id="test_kodu_durum" class="help-text">Benzersiz bir test kodu girin</div>
+            </div>
+            
+            <div class="form-group">
+              <label for="soru_sayisi">Soru Sayısı *</label>
+              <input 
+                type="number" 
+                id="soru_sayisi" 
+                name="soru_sayisi" 
+                min="1" 
+                max="25" 
+                required
+              >
+              <div class="help-text">1-25 arası bir sayı girin</div>
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label for="test_adi">Test Adı *</label>
+            <input 
+              type="text" 
+              id="test_adi" 
+              name="test_adi" 
+              placeholder="Örn: Matematik Deneme 1"
+              required
+            >
+            <div class="help-text">Test için açıklayıcı bir isim girin</div>
+          </div>
+        </div>
+        
+        <div class="form-section">
+          <div class="section-title">✏️ Cevap Anahtarı ve Çözüm Videoları</div>
+          <div class="help-text" style="margin-bottom: 20px;">
+            Her soru için doğru cevabı seçin ve isteğe bağlı olarak çözüm videosu URL'si ekleyin.
+          </div>
+          
+          <div class="question-grid" id="questionGrid">
+            <!-- Sorular JavaScript ile dinamik oluşturulacak -->
+          </div>
+        </div>
+        
+        <button type="submit" class="btn-submit" id="submitBtn">
+          ✨ Testi Oluştur
+        </button>
+      </form>
+    </div>
+  </div>
+  
+  <script>
+    const questionGrid = document.getElementById('questionGrid');
+    const soruSayisiInput = document.getElementById('soru_sayisi');
+    
+    // Soru satırlarını oluştur
+    function sorulariOlustur(adet) {
+      questionGrid.innerHTML = '';
+      
+      for (let i = 1; i <= adet; i++) {
+        const row = document.createElement('div');
+        row.className = 'question-row';
+        
+        row.innerHTML = `
+          <span class="question-number">Soru ${i}</span>
+          
+          <select id="cevap_${i}" name="cevap_${i}" class="input-small" required>
+            <option value="">Cevap Seç</option>
+            <option value="A">A</option>
+            <option value="B">B</option>
+            <option value="C">C</option>
+            <option value="D">D</option>
+            <option value="E">E</option>
+          </select>
+          
+          <input 
+            type="url" 
+            id="video_${i}" 
+            name="video_${i}" 
+            placeholder="Video URL (Opsiyonel)"
+            class="input-small"
+          >
+        `;
+        
+        questionGrid.appendChild(row);
+      }
+    }
+    
+    // Sayfa yüklendiğinde varsayılan olarak 1 soru göster
+    sorulariOlustur(1);
+    
+    // Soru sayısı değiştiğinde soruları yeniden oluştur
+    soruSayisiInput.addEventListener('change', function() {
+      const adet = parseInt(this.value) || 1;
+      sorulariOlustur(adet);
+    });
+    
+    let testKoduKontrolTimer;
+    let testKoduGecerli = false;
+    const testKoduInput = document.getElementById('test_kodu');
+    const testKoduDurum = document.getElementById('test_kodu_durum');
+    const submitBtn = document.getElementById('submitBtn');
+    const form = document.querySelector('form');
+    
+    // Test kodu input değiştiğinde
+    testKoduInput.addEventListener('input', function() {
+      const kod = this.value.trim().toUpperCase();
+      
+      // Boşsa sıfırla
+      if (!kod) {
+        testKoduGecerli = false;
+        testKoduDurum.textContent = 'Benzersiz bir test kodu girin';
+        testKoduDurum.className = 'help-text';
+        testKoduInput.classList.remove('input-basarili', 'input-hata');
+        submitBtn.disabled = false;
+        return;
+      }
+      
+      // Önceki timer'ı iptal et
+      clearTimeout(testKoduKontrolTimer);
+      
+      // Bekliyor durumu
+      testKoduGecerli = false;
+      testKoduDurum.textContent = '⏳ Kontrol ediliyor...';
+      testKoduDurum.className = 'help-text kod-kontrol-bekliyor';
+      testKoduInput.classList.remove('input-basarili', 'input-hata');
+      submitBtn.disabled = true;
+      
+      // 500ms sonra kontrol et
+      testKoduKontrolTimer = setTimeout(() => {
+        fetch('/admin/test-kod-kontrol?kod=' + encodeURIComponent(kod))
+          .then(res => res.json())
+          .then(data => {
+            if (data.mevcut) {
+              // Kod zaten kullanılmış
+              testKoduGecerli = false;
+              testKoduDurum.textContent = '❌ Bu kod zaten kullanılıyor!';
+              testKoduDurum.className = 'help-text kod-kontrol-hata';
+              testKoduInput.classList.remove('input-basarili');
+              testKoduInput.classList.add('input-hata');
+              submitBtn.disabled = true;
+            } else {
+              // Kod kullanılabilir
+              testKoduGecerli = true;
+              testKoduDurum.textContent = '✅ Bu kod kullanılabilir';
+              testKoduDurum.className = 'help-text kod-kontrol-basarili';
+              testKoduInput.classList.remove('input-hata');
+              testKoduInput.classList.add('input-basarili');
+              submitBtn.disabled = false;
+            }
+          })
+          .catch(err => {
+            console.error('Kontrol hatası:', err);
+            testKoduGecerli = false;
+            testKoduDurum.textContent = '⚠️ Kontrol edilemedi, tekrar deneyin';
+            testKoduDurum.className = 'help-text kod-kontrol-hata';
+            submitBtn.disabled = false; // Hata durumunda göndermeye izin ver
+          });
+      }, 500);
+    });
+    
+    // Form gönderilirken son kontrol
+    form.addEventListener('submit', function(e) {
+      const kod = testKoduInput.value.trim();
+      if (!kod) {
+        e.preventDefault();
+        alert('Test kodu zorunludur!');
+        return;
+      }
+      
+      if (!testKoduGecerli && testKoduDurum.classList.contains('kod-kontrol-hata')) {
+        e.preventDefault();
+        alert('Test kodu zaten kullanılıyor! Lütfen farklı bir kod girin.');
+        return;
+      }
+      
+      // Soru sayısı kontrolü
+      const soruSayisi = parseInt(soruSayisiInput.value) || 0;
+      if (soruSayisi < 1 || soruSayisi > 25) {
+        e.preventDefault();
+        alert('Soru sayısı 1 ile 25 arasında olmalıdır!');
+        return;
+      }
+      
+      // Tüm soruların cevabı seçilmiş mi kontrol et
+      let eksikVar = false;
+      for (let i = 1; i <= soruSayisi; i++) {
+        const cevap = document.getElementById(`cevap_${i}`);
+        if (!cevap || !cevap.value) {
+          eksikVar = true;
+          break;
+        }
+      }
+      
+      if (eksikVar) {
+        e.preventDefault();
+        alert('Lütfen tüm soruların cevaplarını seçin!');
+        return;
+      }
+    });
+  </script>
+</body>
+</html>
