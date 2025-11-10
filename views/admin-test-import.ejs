@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test İçe Aktar - Admin Panel</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            min-height: 100vh;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #7e22ce 100%);
+            color: white;
+            padding: 20px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header-left h1 {
+            font-size: 28px;
+            margin-bottom: 5px;
+        }
+        
+        .header-left p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+        
+        .header-right {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        .admin-info {
+            background: rgba(255,255,255,0.15);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+        }
+        
+        .btn-header {
+            background: rgba(255,255,255,0.1);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        .btn-header:hover {
+            background: rgba(255,255,255,0.2);
+            transform: translateY(-2px);
+        }
+        
+        .btn-logout {
+            background: #e74c3c;
+            border-color: #c0392b;
+        }
+        
+        .btn-logout:hover {
+            background: #c0392b;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 30px auto;
+            padding: 0 30px;
+        }
+        
+        .form-card {
+            background: white;
+            border-radius: 15px;
+            padding: 40px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            margin-bottom: 30px;
+        }
+        
+        .form-title {
+            font-size: 28px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .form-subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .alert {
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+            font-weight: 500;
+        }
+        
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border-left: 4px solid #28a745;
+        }
+        
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border-left: 4px solid #dc3545;
+        }
+        
+        .alert-warning {
+            background: #fff3cd;
+            color: #856404;
+            border-left: 4px solid #ffc107;
+        }
+        
+        .alert-info {
+            background: #cce7ff;
+            color: #004085;
+            border-left: 4px solid #007bff;
+        }
+        
+        .form-section {
+            margin-bottom: 35px;
+            padding-bottom: 35px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        
+        .form-section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        
+        .section-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .file-upload-area {
+            border: 3px dashed #e1e8ed;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            background: #f8f9fa;
+        }
+        
+        .file-upload-area:hover {
+            border-color: #2980b9;
+            background: #f0f8ff;
+        }
+        
+        .file-upload-area.dragover {
+            border-color: #27ae60;
+            background: #f0fff0;
+        }
+        
+        .file-input {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+        
+        .upload-icon {
+            font-size: 3em;
+            color: #3498db;
+            margin-bottom: 15px;
+        }
+        
+        .upload-text {
+            font-size: 1.2em;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        
+        .upload-subtext {
+            color: #7f8c8d;
+            font-size: 0.9em;
+        }
+        
+        .info-section {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 15px;
+        }
+        
+        .info-section h3 {
+            color: #495057;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+        
+        .info-section ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .info-section li {
+            padding: 5px 0;
+            color: #6c757d;
+            font-size: 14px;
+            position: relative;
+            padding-left: 20px;
+        }
+        
+        .info-section li::before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #28a745;
+            font-weight: bold;
+        }
+        
+        .preview-section {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            display: none;
+        }
+        
+        .preview-section.show {
+            display: block;
+        }
+        
+        .preview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e9ecef;
+        }
+        
+        .preview-stats {
+            display: flex;
+            gap: 15px;
+        }
+        
+        .stat-item {
+            text-align: center;
+            padding: 10px 15px;
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            border-radius: 8px;
+            min-width: 70px;
+        }
+        
+        .stat-number {
+            font-size: 1.5em;
+            font-weight: bold;
+            display: block;
+        }
+        
+        .stat-label {
+            font-size: 0.8em;
+            opacity: 0.9;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin-top: 40px;
+        }
+        
+        .btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 150px;
+            justify-content: center;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
+        }
+        
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(52, 152, 219, 0.4);
+        }
+        
+        .btn-primary:disabled {
+            background: linear-gradient(135deg, #bdc3c7, #95a5a6);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+            opacity: 0.6;
+        }
+        
+        .btn-secondary {
+            background: linear-gradient(135deg, #95a5a6, #7f8c8d);
+            color: white;
+            box-shadow: 0 4px 15px rgba(149, 165, 166, 0.3);
+        }
+        
+        .btn-secondary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(149, 165, 166, 0.4);
+        }
+        
+        .btn-secondary:disabled {
+            background: linear-gradient(135deg, #bdc3c7, #95a5a6);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+            opacity: 0.6;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 20px 0;
+            display: none;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #3498db, #2ecc71);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        .test-summary {
+            background: #e8f4f8;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .tests-list {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        
+        .test-item {
+            margin-bottom: 15px;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .new-test {
+            background: #f0fff4;
+            border-color: #27ae60;
+        }
+        
+        .existing-test {
+            background: #fef9e7;
+            border-color: #f39c12;
+        }
+        
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .action-buttons {
+                flex-direction: column;
+            }
+            
+            .preview-stats {
+                flex-wrap: wrap;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="header-content">
+            <div class="header-left">
+                <h1>🎯 Sanal Optik Form</h1>
+                <p>Admin Panel - Test İçe Aktar</p>
+            </div>
+            <div class="header-right">
+                <div class="admin-info">
+                    <span>👤 <%= admin.ad %> <%= admin.soyad %></span>
+                </div>
+                <a href="/admin/dashboard" class="btn-header">🏠 Ana Sayfa</a>
+                <a href="/admin/cikis" class="btn-header btn-logout">🚪 Çıkış</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Container -->
+    <div class="container">
+        <% if (typeof basari !== 'undefined' && basari) { %>
+            <div class="alert alert-success">
+                ✅ <%= basari %>
+            </div>
+        <% } %>
+        <% if (typeof hata !== 'undefined' && hata) { %>
+            <div class="alert alert-error">
+                ❌ <%= hata %>
+            </div>
+        <% } %>
+        
+        <div class="form-card">
+            <h1 class="form-title">📥 Test İçe Aktar</h1>
+            <p class="form-subtitle">HTML formatındaki test cevap anahtarlarını sisteme toplu olarak aktarın</p>
+
+            <form id="importForm" method="POST" enctype="multipart/form-data">
+                <div class="form-section">
+                    <h2 class="section-title">📁 Dosya Seçimi</h2>
+                    
+                    <div class="file-upload-area" id="fileUploadArea">
+                        <input type="file" 
+                               name="htmlFile" 
+                               id="htmlFile" 
+                               class="file-input"
+                               accept=".html,.htm"
+                               required>
+                        <div class="upload-icon">📄</div>
+                        <div class="upload-text">HTML dosyasını seçin veya buraya sürükleyin</div>
+                        <div class="upload-subtext">Sadece .html ve .htm dosyaları kabul edilir</div>
+                    </div>
+                    
+                    <div id="selectedFile" class="alert alert-success" style="display: none;">
+                        <span id="fileName"></span>
+                        <span id="fileSize" style="float: right;"></span>
+                    </div>
+                </div>
+
+                <div class="preview-section" id="previewSection">
+                    <div class="preview-header">
+                        <h2>🔍 Önizleme</h2>
+                        <div class="preview-stats" id="previewStats">
+                            <!-- Stats will be populated by JavaScript -->
+                        </div>
+                    </div>
+                    
+                    <div id="previewContent">
+                        <!-- Preview content will be populated by JavaScript -->
+                    </div>
+                </div>
+
+                <div class="progress-bar" id="progressBar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+
+                <div class="action-buttons">
+                    <button type="button" class="btn btn-secondary" id="previewBtn" disabled>
+                        🔍 Önizleme
+                    </button>
+                    <button type="submit" class="btn btn-primary" id="importBtn" disabled>
+                        📥 İçe Aktar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        console.log('🚀 Test Import Script başlatıldı');
+        
+        const fileInput = document.getElementById('htmlFile');
+        const fileUploadArea = document.getElementById('fileUploadArea');
+        const selectedFile = document.getElementById('selectedFile');
+        const fileName = document.getElementById('fileName');
+        const fileSize = document.getElementById('fileSize');
+        const previewBtn = document.getElementById('previewBtn');
+        const importBtn = document.getElementById('importBtn');
+        const previewSection = document.getElementById('previewSection');
+        const progressBar = document.getElementById('progressBar');
+        const progressFill = document.getElementById('progressFill');
+
+        console.log('📋 DOM elementleri yüklendi:', {
+            fileInput: !!fileInput,
+            fileUploadArea: !!fileUploadArea,
+            selectedFile: !!selectedFile,
+            fileName: !!fileName,
+            fileSize: !!fileSize,
+            previewBtn: !!previewBtn,
+            importBtn: !!importBtn,
+            previewSection: !!previewSection,
+            progressBar: !!progressBar,
+            progressFill: !!progressFill
+        });
+
+        // Drag and drop functionality
+        fileUploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            fileUploadArea.classList.add('dragover');
+        });
+
+        fileUploadArea.addEventListener('dragleave', () => {
+            fileUploadArea.classList.remove('dragover');
+        });
+
+        fileUploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            fileUploadArea.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                fileInput.files = files;
+                handleFileSelect();
+            }
+        });
+
+        fileInput.addEventListener('change', handleFileSelect);
+
+        function handleFileSelect() {
+            console.log('📁 Dosya seçildi');
+            const file = fileInput.files[0];
+            
+            if (file) {
+                console.log('📄 Dosya detayları:', {
+                    name: file.name,
+                    size: file.size,
+                    type: file.type
+                });
+                
+                fileName.textContent = file.name;
+                fileSize.textContent = formatBytes(file.size);
+                selectedFile.style.display = 'block';
+                previewBtn.disabled = false;
+                previewSection.classList.remove('show');
+                importBtn.disabled = true;
+            }
+        }
+
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        previewBtn.addEventListener('click', async () => {
+            console.log('🔄 Önizleme butonuna tıklandı');
+            
+            const file = fileInput.files[0];
+            console.log('📁 Seçilen dosya:', file);
+            
+            if (!file) {
+                console.log('❌ Dosya seçilmemiş');
+                alert('Lütfen önce bir dosya seçin');
+                return;
+            }
+
+            // Show progress
+            console.log('📊 Progress bar gösteriliyor');
+            progressBar.style.display = 'block';
+            progressFill.style.width = '30%';
+            previewBtn.disabled = true;
+            previewBtn.innerHTML = '⏳ Analiz ediliyor...';
+
+            const formData = new FormData();
+            formData.append('htmlFile', file);
+            
+            console.log('📤 FormData oluşturuldu:', {
+                fileName: file.name,
+                fileSize: file.size,
+                fileType: file.type
+            });
+
+            try {
+                console.log('🌐 Fetch isteği başlatılıyor...');
+                const response = await fetch('/admin/test-import/preview', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                console.log('📡 Response alındı:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    ok: response.ok
+                });
+
+                progressFill.style.width = '70%';
+
+                const result = await response.json();
+                console.log('📋 Parse edilmiş response:', result);
+                
+                progressFill.style.width = '100%';
+                
+                if (result.success) {
+                    console.log('✅ Başarılı response, önizleme gösteriliyor');
+                    showPreview(result.data, result.validation);
+                    importBtn.disabled = false;
+                    importBtn.style.background = 'linear-gradient(135deg, #27ae60, #2ecc71)';
+                } else {
+                    console.log('❌ Hata response:', result.message);
+                    alert('Hata: ' + result.message);
+                }
+            } catch (error) {
+                console.error('🚨 Fetch hatası:', error);
+                alert('Bir hata oluştu: ' + error.message);
+            }
+
+            // Reset buttons
+            console.log('🔄 Button reset işlemi başlıyor...');
+            setTimeout(() => {
+                console.log('🔄 Buttons reset ediliyor');
+                progressBar.style.display = 'none';
+                progressFill.style.width = '0%';
+                previewBtn.disabled = false;
+                previewBtn.innerHTML = '🔍 Önizleme';
+                console.log('✅ Button reset tamamlandı');
+            }, 1000);
+        });
+
+        function showPreview(data, validation) {
+            console.log('🖼️ showPreview fonksiyonu çağrıldı', { data, validation });
+            
+            const stats = document.getElementById('previewStats');
+            const content = document.getElementById('previewContent');
+            
+            console.log('📊 DOM elementleri:', { 
+                stats: !!stats, 
+                content: !!content 
+            });
+
+            // Show stats - Multi-test için
+            if (stats) {
+                console.log('📈 Stats güncelleniyor...');
+                stats.innerHTML = `
+                    <div class="stat-item">
+                        <span class="stat-number">${data.testCount || 0}</span>
+                        <span class="stat-label">Test</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number">${data.totalQuestions || 0}</span>
+                        <span class="stat-label">Soru</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number">${data.totalVideos || 0}</span>
+                        <span class="stat-label">Video</span>
+                    </div>
+                `;
+                console.log('✅ Stats güncellendi');
+            }
+
+            // Show validation messages
+            let previewHTML = '';
+            
+            if (validation.warnings && validation.warnings.length > 0) {
+                console.log('⚠️ Uyarılar ekleniyor:', validation.warnings);
+                previewHTML += '<div class="alert alert-warning"><strong>⚠️ Uyarılar:</strong><ul>';
+                validation.warnings.forEach(warning => {
+                    previewHTML += `<li>${warning}</li>`;
+                });
+                previewHTML += '</ul></div>';
+            }
+
+            if (validation.errors && validation.errors.length > 0) {
+                console.log('❌ Hatalar ekleniyor:', validation.errors);
+                previewHTML += '<div class="alert alert-error"><strong>❌ Hatalar:</strong><ul>';
+                validation.errors.forEach(error => {
+                    previewHTML += `<li>${error}</li>`;
+                });
+                previewHTML += '</ul></div>';
+                importBtn.disabled = true;
+            }
+
+            // Show tests info - Tüm testleri göster
+            console.log('📝 Tüm testler listeleniyor...');
+            
+            if (data.tests && data.tests.length > 0) {
+                const newTestsCount = data.existingCodes ? data.tests.length - data.existingCodes.length : data.tests.length;
+                const existingTestsCount = data.existingCodes ? data.existingCodes.length : 0;
+                
+                previewHTML += `
+                    <h3>Bulunan Testler (Toplam: ${data.tests.length})</h3>
+                    <div class="test-summary">
+                        <div style="display: flex; gap: 20px;">
+                            <span style="color: #27ae60; font-weight: bold;">✅ Eklenecek: ${newTestsCount}</span>
+                            <span style="color: #f39c12; font-weight: bold;">⚠️ Atlanacak: ${existingTestsCount}</span>
+                        </div>
+                    </div>
+                `;
+                
+                previewHTML += '<div class="tests-list">';
+                
+                // Tüm testleri göster
+                data.tests.forEach((test, index) => {
+                    // Test kodunun durumunu belirle
+                    const isExisting = data.existingCodes && data.existingCodes.includes(test.testKodu);
+                    const statusClass = isExisting ? 'existing-test' : 'new-test';
+                    const statusIcon = isExisting ? '⚠️' : '✅';
+                    const statusText = isExisting ? 'Mevcut (Atlanacak)' : 'Yeni (Eklenecek)';
+                    
+                    previewHTML += `
+                        <div class="test-item ${statusClass}">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <h4 style="margin: 0 0 5px 0; font-size: 16px;">${statusIcon} ${test.testKodu} - ${test.testAdi}</h4>
+                                    <div style="margin-bottom: 8px;">
+                                        <span style="background: ${isExisting ? '#f39c12' : '#27ae60'}; color: white; padding: 1px 6px; border-radius: 3px; font-size: 11px;">
+                                            ${statusText}
+                                        </span>
+                                        <span style="margin-left: 10px; color: #666; font-size: 13px;">
+                                            ${test.soruSayisi} soru
+                                        </span>
+                                    </div>
+                                </div>
+                                <div style="text-align: right;">
+                                    <small style="color: #666;">Test ${index + 1}/${data.tests.length}</small>
+                                </div>
+                            </div>
+                            
+                            <div class="answers-preview" style="margin-top: 10px;">
+                                <details>
+                                    <summary style="cursor: pointer; color: #666; font-size: 12px;">Cevap Anahtarı Önizleme (İlk 20)</summary>
+                                    <div class="answers-grid" style="display: flex; flex-wrap: wrap; gap: 3px; margin-top: 8px;">
+                    `;
+                
+                    // İlk 20 cevabı göster
+                    for (let i = 1; i <= Math.min(test.soruSayisi, 20); i++) {
+                        const answer = test.cevaplar[`cevap_${i}`] || '?';
+                        const hasVideo = test.videolar[`video_${i}`] && test.videolar[`video_${i}`].trim() !== '' ? 'has-video' : '';
+                        previewHTML += `
+                            <div class="answer-cell ${hasVideo}" style="width: 25px; height: 25px; border: 1px solid #ccc; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: bold; ${hasVideo ? 'background-color: #e8f5e8; border-color: #27ae60;' : ''} font-size: 9px;">
+                                <span style="font-size: 7px; color: #666;">${i}</span>
+                                <span style="font-size: 11px; color: #000;">${answer}</span>
+                                ${hasVideo ? '<span style="font-size: 6px; color: #27ae60;">🎥</span>' : ''}
+                            </div>
+                        `;
+                    }
+                    
+                    if (test.soruSayisi > 20) {
+                        previewHTML += `<span style="margin-left: 8px; color: #666; font-size: 11px;">... +${test.soruSayisi - 20} soru</span>`;
+                    }
+                    
+                    previewHTML += `
+                                    </div>
+                                </details>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                previewHTML += '</div>';
+            }
+
+            console.log('📋 Content güncelleniyor...');
+            if (content) {
+                content.innerHTML = previewHTML;
+                console.log('✅ Content güncellendi');
+            }
+            
+            console.log('👁️ Preview section gösteriliyor...');
+            previewSection.classList.add('show');
+            console.log('✅ showPreview tamamlandı');
+        }
+
+        // Form submit
+        document.getElementById('importForm').addEventListener('submit', (e) => {
+            console.log('📤 Form submit event tetiklendi');
+            console.log('👁️ Preview section show durumu:', previewSection.classList.contains('show'));
+            
+            if (!previewSection.classList.contains('show')) {
+                console.log('❌ Önizleme yapılmamış, form submit engellendi');
+                e.preventDefault();
+                alert('Lütfen önce önizleme yapın');
+                return;
+            }
+            console.log('✅ Form submit onaylandı');
+        });
+    </script>
+</body>
+</html>

@@ -5,6 +5,7 @@ var Test = require('../models/Test');
 var Admin = require('../models/Admin');
 var authMiddleware = require('../middleware/auth');
 var K12NetSSO = require('../utils/K12NetSSO');
+var HTMLTestParser = require('../utils/htmlParser');
 var { Logger } = require('../logger');
 var logger = new Logger();
 var multer = require('multer');
@@ -32,6 +33,32 @@ const upload = multer({
     } else {
       cb(new Error('Sadece Excel dosyaları (.xlsx, .xls) kabul edilir!'), false);
     }
+  }
+});
+
+// HTML dosyalar için multer konfigürasyonu
+const htmlStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/');
+  },
+  filename: function (req, file, cb) {
+    cb(null, 'test_import_' + Date.now() + '_' + file.originalname);
+  }
+});
+
+const uploadHTML = multer({ 
+  storage: htmlStorage,
+  fileFilter: function (req, file, cb) {
+    if (file.mimetype === 'text/html' || 
+        file.originalname.toLowerCase().endsWith('.html') ||
+        file.originalname.toLowerCase().endsWith('.htm')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Sadece HTML dosyaları (.html, .htm) kabul edilir!'), false);
+    }
+  },
+  limits: {
+    fileSize: 50 * 1024 * 1024 // 50MB limit
   }
 });
 
@@ -2237,6 +2264,293 @@ router.post('/admin/test-yeniden-degerlendir/:testId', adminAuthMiddleware, func
       });
     }
   );
+});
+
+// ==================== TEST İMPORT ENDPOINTS ====================
+
+// Test import sayfası
+router.get('/admin/test-import', adminAuthMiddleware, function(req, res, next) {
+  // Test import sayfası erişim logla
+  const clientInfo = logger.getClientIPInfo(req);
+  logger.logAdminAction(
+    'test_import_page_accessed',
+    req.session.admin.id,
+    'Test import sayfasına erişim',
+    clientInfo.ip,
+    clientInfo.port,
+    logger.getUserAgent(req)
+  ).catch(console.error);
+
+  res.render('admin-test-import', {
+    admin: req.session.admin,
+    hata: req.query.hata || null,
+    basari: req.query.basari || null
+  });
+});
+
+// Test import önizleme (AJAX) - Multi-Test Support
+router.post('/admin/test-import/preview', adminAuthMiddleware, uploadHTML.single('htmlFile'), function(req, res, next) {
+  try {
+    console.log('🔍 Test import preview başlatıldı');
+    
+    if (!req.file) {
+      console.log('❌ HTML dosyası yok');
+      return res.json({
+        success: false,
+        message: 'HTML dosyası seçilmedi'
+      });
+    }
+
+    console.log('📁 Dosya bilgileri:', {
+      fileName: req.file.originalname,
+      filePath: req.file.path,
+      fileSize: req.file.size
+    });
+
+    // HTML dosyasını oku
+    const htmlContent = fs.readFileSync(req.file.path, 'utf8');
+    console.log('📖 HTML dosyası okundu, boyut:', htmlContent.length);
+
+    // Yeni multi-test parser'ı kullan
+    const HtmlTestParser = require('../utils/HtmlTestParser');
+    const parser = new HtmlTestParser();
+    
+    // Çoklu test parse et
+    const tests = parser.parseMultipleTests(htmlContent);
+    console.log(`✅ ${tests.length} test parse edildi`);
+
+    // Geçici dosyayı sil
+    fs.unlinkSync(req.file.path);
+    console.log('🗑️ Geçici dosya silindi');
+
+    // Validation
+    const validation = {
+      stats: {
+        testSayisi: tests.length,
+        cevaplar: tests.reduce((total, test) => total + test.soruSayisi, 0),
+        videolar: tests.reduce((total, test) => {
+          return total + Object.keys(test.videolar).filter(key => test.videolar[key]).length;
+        }, 0)
+      },
+      warnings: [],
+      errors: []
+    };
+
+    // Test sayısı kontrolü
+    if (tests.length === 0) {
+      validation.errors.push('HTML dosyasında hiç test bulunamadı');
+    } else if (tests.length > 100) {
+      validation.warnings.push(`${tests.length} test bulundu. Bu çok fazla olabilir.`);
+    }
+
+    // Test kodları duplicate kontrolü (dosya içi) - sessiz kontrol
+    const testCodes = tests.map(t => t.testKodu);
+    const duplicates = testCodes.filter((code, index) => testCodes.indexOf(code) !== index);
+    if (duplicates.length > 0) {
+      console.log(`📋 Dosya içinde duplicate test kodları tespit edildi: ${[...new Set(duplicates)].join(', ')}`);
+    }
+
+    // Veritabanında mevcut test kodlarını kontrol et
+    const db = require('../database');
+    const existingCodes = [];
+    let checkCount = 0;
+    
+    const checkExistingCodes = () => {
+      if (checkCount < testCodes.length) {
+        const testCode = testCodes[checkCount];
+        db.query(
+          'SELECT test_kodu FROM test_havuzu WHERE UPPER(test_kodu) = ?',
+          [testCode.toUpperCase()],
+          (err, results) => {
+            if (!err && results.length > 0) {
+              existingCodes.push(testCode);
+            }
+            checkCount++;
+            checkExistingCodes();
+          }
+        );
+      } else {
+        // Tüm kontroler tamamlandı - mevcut kodlar sessizce tespit edildi
+        if (existingCodes.length > 0) {
+          console.log(`📋 Veritabanında zaten mevcut test kodları tespit edildi: ${existingCodes.join(', ')}`);
+        }
+        
+        // Log kaydet
+        const clientInfo = logger.getClientIPInfo(req);
+        logger.logAdminAction(
+          'multi_test_import_preview',
+          req.session.admin.id,
+          `Multi-test import önizleme - ${tests.length} test bulundu, ${existingCodes.length} mevcut`,
+          clientInfo.ip,
+          clientInfo.port,
+          logger.getUserAgent(req)
+        ).catch(console.error);
+
+        console.log('✅ Preview başarıyla tamamlandı');
+        res.json({
+          success: true,
+          data: {
+            testCount: tests.length,
+            tests: tests,
+            totalQuestions: validation.stats.cevaplar,
+            totalVideos: validation.stats.videolar,
+            existingCodes: existingCodes
+          },
+          validation: validation
+        });
+      }
+    };
+    
+    // Kontrol işlemini başlat
+    checkExistingCodes();
+
+  } catch (error) {
+    console.error('🚨 Test import preview error:', error);
+    
+    // Hata durumunda geçici dosyayı sil
+    if (req.file && req.file.path) {
+      try {
+        fs.unlinkSync(req.file.path);
+        console.log('🗑️ Hata sonrası geçici dosya silindi');
+      } catch (unlinkError) {
+        console.error('🚨 Geçici dosya silinemedi:', unlinkError);
+      }
+    }
+
+    res.json({
+      success: false,
+      message: 'Dosya işlenirken hata oluştu: ' + error.message
+    });
+  }
+});
+
+// Test import işlemi (Çoklu test desteği)
+router.post('/admin/test-import', adminAuthMiddleware, uploadHTML.single('htmlFile'), function(req, res, next) {
+  try {
+    if (!req.file) {
+      return res.redirect('/admin/test-import?hata=' + encodeURIComponent('HTML dosyası seçilmedi'));
+    }
+
+    const parser = new HTMLTestParser();
+    const filePath = req.file.path;
+    const htmlContent = fs.readFileSync(filePath, 'utf8');
+
+    // Yeni multi-test parser'ı kullan
+    const HtmlTestParser = require('../utils/HtmlTestParser');
+    const multiParser = new HtmlTestParser();
+    
+    // Çoklu test parse et
+    const tests = multiParser.parseMultipleTests(htmlContent);
+
+    if (tests.length === 0) {
+      fs.unlinkSync(filePath);
+      return res.redirect('/admin/test-import?hata=' + encodeURIComponent('HTML dosyasında geçerli test bulunamadı'));
+    }
+
+    console.log(`Bulunan test sayısı: ${tests.length}`);
+
+    const db = require('../database');
+    let processedCount = 0;
+    let successCount = 0;
+    let errorCount = 0;
+    let errors = [];
+
+    // Her testi işle
+    const processTest = (index) => {
+      if (index >= tests.length) {
+        // Tüm testler işlendi
+        fs.unlinkSync(filePath);
+
+        // Sonuç logla
+        const clientInfo = logger.getClientIPInfo(req);
+        logger.logAdminAction(
+          'bulk_test_import',
+          req.session.admin.id,
+          `Toplu test import - Toplam: ${tests.length}, Başarılı: ${successCount}, Hatalı: ${errorCount}`,
+          clientInfo.ip,
+          clientInfo.port,
+          logger.getUserAgent(req)
+        ).catch(console.error);
+
+        let message = `${successCount} test başarıyla import edildi`;
+        if (errorCount > 0) {
+          message += `, ${errorCount} test başarısız`;
+          if (errors.length > 0) {
+            message += ` (Örnekler: ${errors.slice(0, 2).join(', ')}${errors.length > 2 ? ` ve ${errors.length - 2} tane daha...` : ''})`;
+          }
+        }
+
+        console.log(`📊 Import Özeti: Başarılı: ${successCount}, Hatalı: ${errorCount}, Toplam: ${tests.length}`);
+
+        const redirectUrl = errorCount > 0 && successCount === 0 ? 
+          '/admin/test-import?hata=' + encodeURIComponent(message) :
+          '/admin/test-import?basari=' + encodeURIComponent(message);
+
+        return res.redirect(redirectUrl);
+      }
+
+      const testData = tests[index];
+
+      // Test kodunun benzersiz olduğunu kontrol et
+      db.query(
+        'SELECT id FROM test_havuzu WHERE UPPER(test_kodu) = ?',
+        [testData.testKodu.toUpperCase()],
+        (err, results) => {
+          if (err) {
+            errors.push(`${testData.testKodu}: DB hatası`);
+            errorCount++;
+            processedCount++;
+            return processTest(index + 1);
+          }
+
+          if (results.length > 0) {
+            console.log(`⚠️ Test kodu zaten mevcut: ${testData.testKodu}`);
+            errors.push(`${testData.testKodu}: Bu test kodu zaten veritabanında mevcut`);
+            errorCount++;
+            processedCount++;
+            return processTest(index + 1);
+          }
+
+          // Test havuzuna ekle
+          Test.testOlustur(
+            testData.testKodu,
+            testData.testAdi,
+            testData.soruSayisi,
+            testData.cevaplar,
+            testData.videolar,
+            (err, testId) => {
+              if (err) {
+                errors.push(`${testData.testKodu}: ${err.message}`);
+                errorCount++;
+              } else {
+                successCount++;
+                console.log(`✓ ${testData.testKodu} başarıyla eklendi`);
+              }
+              
+              processedCount++;
+              processTest(index + 1);
+            }
+          );
+        }
+      );
+    };
+
+    // İşlemi başlat
+    processTest(0);
+
+  } catch (error) {
+    // Hata durumunda geçici dosyayı sil
+    if (req.file && req.file.path) {
+      try {
+        fs.unlinkSync(req.file.path);
+      } catch (unlinkError) {
+        console.error('Geçici dosya silinemedi:', unlinkError);
+      }
+    }
+
+    console.error('Test import error:', error);
+    res.redirect('/admin/test-import?hata=' + encodeURIComponent('HTML dosyası işlenemedi: ' + error.message));
+  }
 });
 
 module.exports = router;
