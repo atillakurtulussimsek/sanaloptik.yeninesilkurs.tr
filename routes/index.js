@@ -1532,39 +1532,82 @@ router.post('/admin/ogrenci-ara', adminAuthMiddleware, function(req, res, next) 
 router.post('/admin/test-sonuclarini-guncelle', adminAuthMiddleware, function(req, res, next) {
   const db = require('../database');
   
-  // Tamamlanmış ama puan bilgisi olmayan testleri bul
+  // Tüm tamamlanmış testleri getir (sonuçları yeniden gözden geçir)
   db.query(
-    `SELECT ot.ogrenci_id, ot.test_id, o.ad, o.soyad, o.numara, th.test_kodu, th.test_adi
+    `SELECT ot.ogrenci_id, ot.test_id, ot.puan as mevcut_puan, 
+            ot.dogru_sayisi as mevcut_dogru, ot.yanlis_sayisi as mevcut_yanlis,
+            o.ad, o.soyad, o.numara, th.test_kodu, th.test_adi, th.soru_sayisi,
+            DATE_FORMAT(ot.tamamlanma_tarihi, '%d.%m.%Y %H:%i') as tarih
      FROM ogrenci_testleri ot
      JOIN ogrenciler o ON ot.ogrenci_id = o.id
      JOIN test_havuzu th ON ot.test_id = th.id
-     WHERE ot.durum = 'tamamlandi' AND (ot.puan IS NULL OR ot.dogru_sayisi IS NULL)`,
+     WHERE ot.durum = 'tamamlandi'
+     ORDER BY ot.tamamlanma_tarihi DESC`,
     (err, testler) => {
       if (err) {
         return res.json({ success: false, message: 'Sorgu hatası: ' + err.message });
       }
       
       if (testler.length === 0) {
-        return res.json({ success: true, message: 'Güncellenecek test bulunamadı.', guncellenen: 0 });
+        return res.json({ success: true, message: 'Tamamlanmış test bulunamadı.', guncellenen: 0 });
       }
       
       let tamamlanan = 0;
+      let guncellenen = 0;
       let hatalar = [];
+      let detaylar = [];
+      
+      console.log(`🔄 ${testler.length} tamamlanmış test sonucu yeniden değerlendiriliyor...`);
       
       testler.forEach((test, index) => {
-        Test.testSonucuHesapla(test.ogrenci_id, test.test_id, (err, sonuc) => {
+        Test.testSonucuHesapla(test.ogrenci_id, test.test_id, (err, yeniSonuc) => {
           if (err) {
             hatalar.push(`${test.numara} - ${test.test_kodu}: ${err.message}`);
+            console.error(`❌ ${test.numara} - ${test.test_kodu}: Hesaplama hatası`);
           } else {
-            // Sonuçları güncelle
+            // Sonuçları karşılaştır
+            const eskiPuan = test.mevcut_puan || 0;
+            const eskiDogru = test.mevcut_dogru || 0;
+            const eskiYanlis = test.mevcut_yanlis || 0;
+            
+            // Yeni sonuçları number'a çevir (güvenlik için)
+            const yeniPuan = parseFloat(yeniSonuc.puan) || 0;
+            const yeniDogru = parseInt(yeniSonuc.dogru) || 0;
+            const yeniYanlis = parseInt(yeniSonuc.yanlis) || 0;
+            const yeniBos = parseInt(yeniSonuc.bos) || 0;
+            
+            const degisiklikVar = 
+              Math.abs(eskiPuan - yeniPuan) > 0.01 ||
+              eskiDogru !== yeniDogru ||
+              eskiYanlis !== yeniYanlis;
+            
+            // Sonuçları güncelle (değişiklik olsun ya da olmasın)
             db.query(
               `UPDATE ogrenci_testleri 
                SET puan = ?, dogru_sayisi = ?, yanlis_sayisi = ?, bos_sayisi = ?
                WHERE ogrenci_id = ? AND test_id = ?`,
-              [sonuc.puan, sonuc.dogru, sonuc.yanlis, sonuc.bos, test.ogrenci_id, test.test_id],
+              [yeniPuan, yeniDogru, yeniYanlis, yeniBos, test.ogrenci_id, test.test_id],
               (err) => {
                 if (err) {
                   hatalar.push(`${test.numara} - ${test.test_kodu}: Güncelleme hatası`);
+                  console.error(`❌ ${test.numara} - ${test.test_kodu}: DB güncelleme hatası`);
+                } else {
+                  if (degisiklikVar) {
+                    guncellenen++;
+                    detaylar.push({
+                      ogrenci: `${test.ad} ${test.soyad} (${test.numara})`,
+                      test: `${test.test_kodu} - ${test.test_adi}`,
+                      tarih: test.tarih,
+                      eskiPuan: eskiPuan.toFixed(2),
+                      yeniPuan: yeniPuan.toFixed(2),
+                      eskiDogru: eskiDogru,
+                      yeniDogru: yeniDogru,
+                      degisim: yeniPuan - eskiPuan
+                    });
+                    console.log(`✅ ${test.numara} - ${test.test_kodu}: Puan ${eskiPuan.toFixed(2)} → ${yeniPuan.toFixed(2)}`);
+                  } else {
+                    console.log(`✓ ${test.numara} - ${test.test_kodu}: Değişiklik yok (${yeniPuan.toFixed(2)})`);
+                  }
                 }
                 tamamlanan++;
                 
@@ -1573,19 +1616,24 @@ router.post('/admin/test-sonuclarini-guncelle', adminAuthMiddleware, function(re
                   // İşlem tamamlandı, log kaydet
                   const clientInfo = logger.getClientIPInfo(req);
                   logger.logAdminAction(
-                    'test_results_updated',
+                    'test_results_reviewed',
                     req.session.admin.id,
-                    `Test sonuçları güncellendi - Toplam: ${testler.length}, Başarılı: ${testler.length - hatalar.length}, Hatalı: ${hatalar.length}`,
+                    `Tamamlanmış testler gözden geçirildi - Toplam: ${testler.length}, Güncellenen: ${guncellenen}, Hatalı: ${hatalar.length}`,
                     clientInfo.ip,
                     clientInfo.port,
                     logger.getUserAgent(req)
                   ).catch(console.error);
                   
+                  console.log(`📊 İşlem tamamlandı: ${testler.length} test gözden geçirildi, ${guncellenen} güncellendi`);
+                  
                   res.json({
                     success: true,
-                    message: `${testler.length - hatalar.length} test sonucu güncellendi.`,
-                    guncellenen: testler.length - hatalar.length,
-                    hatalar: hatalar
+                    message: `${testler.length} test sonucu gözden geçirildi. ${guncellenen} testte değişiklik yapıldı.`,
+                    toplamTest: testler.length,
+                    guncellenen: guncellenen,
+                    degismeyen: testler.length - guncellenen - hatalar.length,
+                    hatalar: hatalar,
+                    detaylar: detaylar.slice(0, 10) // İlk 10 değişikliği göster
                   });
                 }
               }
@@ -2552,6 +2600,413 @@ router.post('/admin/test-import', adminAuthMiddleware, uploadHTML.single('htmlFi
     res.redirect('/admin/test-import?hata=' + encodeURIComponent('HTML dosyası işlenemedi: ' + error.message));
   }
 });
+
+// Tek öğrenciye çoklu test atama sayfası
+router.get('/admin/multi-test-assign', adminAuthMiddleware, function(req, res, next) {
+  // Sayfa erişim logla
+  const clientInfo = logger.getClientIPInfo(req);
+  logger.logAdminAction(
+    'multi_test_assign_page_accessed',
+    req.session.admin.id,
+    'Tek öğrenciye çoklu test atama sayfasına erişim',
+    clientInfo.ip,
+    clientInfo.port,
+    logger.getUserAgent(req)
+  ).catch(console.error);
+
+  // Tüm testleri getir
+  Test.tumTestleriGetir((err, testler) => {
+    if (err) return next(err);
+    
+    res.render('admin-multi-test-assign', {
+      admin: req.session.admin,
+      testler: testler || [],
+      hata: req.query.hata || null,
+      basari: req.query.basari || null
+    });
+  });
+});
+
+// Tek öğrenciye çoklu test atama işlemi
+router.post('/admin/multi-test-assign', adminAuthMiddleware, function(req, res, next) {
+  try {
+    console.log('🎯 Tek öğrenciye çoklu test atama başlatıldı');
+    
+    const { student_number, selected_tests, custom_names } = req.body;
+    
+    // DEBUG: Gönderilen verileri kontrol et
+    console.log('📊 POST Verileri:');
+    console.log('  student_number:', student_number);
+    console.log('  selected_tests:', selected_tests);
+    console.log('  custom_names:', JSON.stringify(custom_names, null, 2));
+    
+    if (!student_number || !selected_tests) {
+      return res.redirect('/admin/multi-test-assign?hata=' + encodeURIComponent('Öğrenci numarası ve en az bir test seçimi gereklidir'));
+    }
+    
+    const studentNumber = student_number.trim();
+    
+    // Selected tests array olarak gelir (multiple selection)
+    const testCodes = Array.isArray(selected_tests) ? selected_tests : [selected_tests];
+    
+    if (testCodes.length === 0) {
+      return res.redirect('/admin/multi-test-assign?hata=' + encodeURIComponent('En az bir test seçmelisiniz'));
+    }
+    
+    console.log(`📊 Öğrenci: ${studentNumber}, Test sayısı: ${testCodes.length}`);
+    console.log(`📋 Seçilen testler: ${testCodes.join(', ')}`);
+    
+    const db = require('../database');
+    
+    // Önce öğrencinin geçerli olduğunu kontrol et
+    db.query(
+      'SELECT id, ad, soyad FROM ogrenciler WHERE numara = ?',
+      [studentNumber],
+      (err, studentResults) => {
+        if (err || studentResults.length === 0) {
+          return res.redirect('/admin/multi-test-assign?hata=' + encodeURIComponent(`Öğrenci bulunamadı: ${studentNumber}`));
+        }
+        
+        const studentId = studentResults[0].id;
+        const studentName = `${studentResults[0].ad} ${studentResults[0].soyad}`;
+        
+        console.log(`✅ Öğrenci bulundu: ${studentName} (ID: ${studentId})`);
+        
+        let processedCount = 0;
+        let successCount = 0;
+        let errorCount = 0;
+        let skippedCount = 0;
+        let errors = [];
+        
+        // Her test kodunu işle
+        const processTestCode = (index) => {
+          if (index >= testCodes.length) {
+            // Tüm testler işlendi
+            const clientInfo = logger.getClientIPInfo(req);
+            logger.logAdminAction(
+              'multi_test_assign_completed',
+              req.session.admin.id,
+              `Çoklu test atama tamamlandı - Öğrenci: ${studentNumber} (${studentName}), Toplam: ${testCodes.length}, Başarılı: ${successCount}, Hatalı: ${errorCount}, Atlandı: ${skippedCount}`,
+              clientInfo.ip,
+              clientInfo.port,
+              logger.getUserAgent(req)
+            ).catch(console.error);
+            
+            let message = `${studentName}'e ${successCount} test başarıyla atandı`;
+            if (skippedCount > 0) {
+              message += `, ${skippedCount} test atlandı (zaten atanmış)`;
+            }
+            if (errorCount > 0) {
+              message += `, ${errorCount} test başarısız`;
+              if (errors.length > 0) {
+                message += ` (${errors.slice(0, 2).join(', ')}${errors.length > 2 ? ` ve ${errors.length - 2} tane daha...` : ''})`;
+              }
+            }
+            
+            console.log(`📊 Çoklu Atama Özeti: Başarılı: ${successCount}, Hatalı: ${errorCount}, Atlandı: ${skippedCount}, Toplam: ${testCodes.length}`);
+            
+            const redirectUrl = successCount === 0 ? 
+              '/admin/multi-test-assign?hata=' + encodeURIComponent(message) :
+              '/admin/multi-test-assign?basari=' + encodeURIComponent(message);
+            
+            return res.redirect(redirectUrl);
+          }
+          
+          const testCode = testCodes[index];
+          const customName = custom_names && custom_names[testCode] ? custom_names[testCode].trim() : null;
+          
+          // DEBUG: Özel ad kontrolü
+          console.log(`🔍 Test: ${testCode}`);
+          console.log(`   custom_names objesi:`, custom_names);
+          console.log(`   Bu test için custom name: "${customName}"`);
+          console.log(`   custom_names[${testCode}]:`, custom_names ? custom_names[testCode] : 'custom_names null');
+          
+          // Test kodunu bul
+          db.query(
+            'SELECT id, test_adi FROM test_havuzu WHERE UPPER(test_kodu) = ? AND aktif = 1',
+            [testCode.toUpperCase()],
+            (err, testResults) => {
+              if (err || testResults.length === 0) {
+                console.log(`⚠️ Test bulunamadı: ${testCode}`);
+                errors.push(`${testCode}: Test bulunamadı`);
+                errorCount++;
+                processedCount++;
+                return processTestCode(index + 1);
+              }
+              
+              const testId = testResults[0].id;
+              const originalTestName = testResults[0].test_adi;
+              
+              // Bu test daha önce atanmış mı kontrol et
+              db.query(
+                'SELECT id FROM ogrenci_testleri WHERE ogrenci_id = ? AND test_id = ?',
+                [studentId, testId],
+                (err, existingAssignments) => {
+                  if (err) {
+                    console.log(`❌ DB hatası - ${testCode}: ${err.message}`);
+                    errors.push(`${testCode}: DB hatası`);
+                    errorCount++;
+                    processedCount++;
+                    return processTestCode(index + 1);
+                  }
+                  
+                  if (existingAssignments.length > 0) {
+                    console.log(`⚠️ Test zaten atanmış: ${testCode}`);
+                    skippedCount++;
+                    processedCount++;
+                    return processTestCode(index + 1);
+                  }
+                  
+                  // Test ata
+                  const sql = customName 
+                    ? 'INSERT INTO ogrenci_testleri (ogrenci_id, test_id, ozel_test_adi, durum, atanma_tarihi) VALUES (?, ?, ?, "beklemede", NOW())'
+                    : 'INSERT INTO ogrenci_testleri (ogrenci_id, test_id, durum, atanma_tarihi) VALUES (?, ?, "beklemede", NOW())';
+                  
+                  const params = customName ? [studentId, testId, customName] : [studentId, testId];
+                  
+                  db.query(sql, params, (err) => {
+                    if (err) {
+                      console.log(`❌ Atama hatası - ${testCode}: ${err.message}`);
+                      errors.push(`${testCode}: ${err.message}`);
+                      errorCount++;
+                    } else {
+                      console.log(`✅ Test atandı: ${testCode} ${customName ? `(${customName})` : ''}`);
+                      successCount++;
+                    }
+                    
+                    processedCount++;
+                    processTestCode(index + 1);
+                  });
+                }
+              );
+            }
+          );
+        };
+        
+        // İşlemi başlat
+        processTestCode(0);
+      }
+    );
+    
+  } catch (error) {
+    console.error('Multi-test assignment error:', error);
+    res.redirect('/admin/multi-test-assign?hata=' + encodeURIComponent('İşlem başarısız: ' + error.message));
+  }
+});
+
+// Toplu test atama sayfası
+router.get('/admin/bulk-test-assign', adminAuthMiddleware, function(req, res, next) {
+  // Sayfa erişim logla
+  const clientInfo = logger.getClientIPInfo(req);
+  logger.logAdminAction(
+    'bulk_test_assign_page_accessed',
+    req.session.admin.id,
+    'Toplu test atama sayfasına erişim',
+    clientInfo.ip,
+    clientInfo.port,
+    logger.getUserAgent(req)
+  ).catch(console.error);
+
+  res.render('admin-bulk-test-assign', {
+    admin: req.session.admin,
+    hata: req.query.hata || null,
+    basari: req.query.basari || null
+  });
+});
+
+// Toplu test atama işlemi
+router.post('/admin/bulk-test-assign', adminAuthMiddleware, function(req, res, next) {
+  try {
+    console.log('🔄 Toplu test atama başlatıldı');
+    
+    const { student_numbers, test_code, test_name } = req.body;
+    
+    if (!student_numbers || !test_code) {
+      return res.redirect('/admin/bulk-test-assign?hata=' + encodeURIComponent('Öğrenci numaraları ve test kodu gereklidir'));
+    }
+    
+    // Öğrenci numaralarını temizle ve diziye çevir
+    const cleanedNumbers = student_numbers
+      .split(/[\n,\s]+/) // Yeni satır, virgül veya boşlukla ayır
+      .map(num => num.trim())
+      .filter(num => num.length > 0); // Boş değerleri filtrele
+    
+    if (cleanedNumbers.length === 0) {
+      return res.redirect('/admin/bulk-test-assign?hata=' + encodeURIComponent('Geçerli öğrenci numarası bulunamadı'));
+    }
+    
+    const testCode = test_code.trim().toUpperCase();
+    let testName = test_name ? test_name.trim() : null;
+    
+    // Test kodu/özel ad formatını kontrol et (TEST001/Özel Test Adı)
+    if (testCode.includes('/')) {
+      const parts = testCode.split('/');
+      if (parts.length === 2) {
+        const actualTestCode = parts[0].trim();
+        const customTestName = parts[1].trim();
+        
+        console.log(`📝 Test kodu/özel ad formatı tespit edildi: ${actualTestCode} -> "${customTestName}"`);
+        
+        // Slash formatından gelen özel adı kullan (test_name alanından gelen varsa onu da override et)
+        testName = customTestName || testName;
+        
+        // Test kodunu temiz hale getir
+        const finalTestCode = actualTestCode;
+        
+        // Öğrenci numaralarını temizle ve diziye çevir
+        const cleanedNumbers = student_numbers
+          .split(/[\n,\s]+/) // Yeni satır, virgül veya boşlukla ayır
+          .map(num => num.trim())
+          .filter(num => num.length > 0); // Boş değerleri filtrele
+        
+        if (cleanedNumbers.length === 0) {
+          return res.redirect('/admin/bulk-test-assign?hata=' + encodeURIComponent('Geçerli öğrenci numarası bulunamadı'));
+        }
+        
+        console.log(`📊 İşlenecek öğrenci sayısı: ${cleanedNumbers.length}, Test kodu: ${finalTestCode}, Özel ad: "${testName}"`);
+        
+        // Bu değişkenleri kullanarak devam et
+        return processBulkAssignment(req, res, next, cleanedNumbers, finalTestCode, testName);
+      }
+    }
+    
+    // Normal format (slash olmayan)
+    console.log(`📊 İşlenecek öğrenci sayısı: ${cleanedNumbers.length}, Test kodu: ${testCode}, Özel ad: "${testName || 'yok'}"`);
+    
+    return processBulkAssignment(req, res, next, cleanedNumbers, testCode, testName);
+    
+  } catch (error) {
+    console.error('Toplu test atama error:', error);
+    res.redirect('/admin/bulk-test-assign?hata=' + encodeURIComponent('İşlem başarısız: ' + error.message));
+  }
+});
+
+// Toplu test atama işlem fonksiyonu
+function processBulkAssignment(req, res, next, cleanedNumbers, testCode, testName) {
+    
+    const db = require('../database');
+    let processedCount = 0;
+    let successCount = 0;
+    let errorCount = 0;
+    let errors = [];
+    let skippedCount = 0;
+    
+    // Önce test kodunun geçerli olduğunu kontrol et
+    db.query(
+      'SELECT id, test_adi FROM test_havuzu WHERE UPPER(test_kodu) = ? AND aktif = 1',
+      [testCode],
+      (err, testResults) => {
+        if (err || testResults.length === 0) {
+          return res.redirect('/admin/bulk-test-assign?hata=' + encodeURIComponent(`Test kodu bulunamadı veya aktif değil: ${testCode}`));
+        }
+        
+        const testId = testResults[0].id;
+        const originalTestName = testResults[0].test_adi;
+        
+        console.log(`✅ Test bulundu: ${originalTestName} (ID: ${testId})`);
+        
+        // Her öğrenci numarasını işle
+        const processStudent = (index) => {
+          if (index >= cleanedNumbers.length) {
+            // Tüm öğrenciler işlendi
+            const clientInfo = logger.getClientIPInfo(req);
+            logger.logAdminAction(
+              'bulk_test_assign_completed',
+              req.session.admin.id,
+              `Toplu test atama tamamlandı - Test: ${testCode}, Toplam: ${cleanedNumbers.length}, Başarılı: ${successCount}, Hatalı: ${errorCount}, Atlandı: ${skippedCount}`,
+              clientInfo.ip,
+              clientInfo.port,
+              logger.getUserAgent(req)
+            ).catch(console.error);
+            
+            let message = `Toplu atama tamamlandı! Başarılı: ${successCount}`;
+            if (skippedCount > 0) {
+              message += `, Atlandı: ${skippedCount} (zaten atanmış)`;
+            }
+            if (errorCount > 0) {
+              message += `, Hatalı: ${errorCount}`;
+              if (errors.length > 0) {
+                message += ` (Örnekler: ${errors.slice(0, 3).join(', ')}${errors.length > 3 ? ` ve ${errors.length - 3} tane daha...` : ''})`;
+              }
+            }
+            
+            console.log(`📊 Toplu Atama Özeti: Başarılı: ${successCount}, Hatalı: ${errorCount}, Atlandı: ${skippedCount}, Toplam: ${cleanedNumbers.length}`);
+            
+            const redirectUrl = successCount === 0 ? 
+              '/admin/bulk-test-assign?hata=' + encodeURIComponent(message) :
+              '/admin/bulk-test-assign?basari=' + encodeURIComponent(message);
+            
+            return res.redirect(redirectUrl);
+          }
+          
+          const studentNumber = cleanedNumbers[index];
+          
+          // Öğrenciyi bul
+          db.query(
+            'SELECT id FROM ogrenciler WHERE numara = ?',
+            [studentNumber],
+            (err, studentResults) => {
+              if (err || studentResults.length === 0) {
+                console.log(`⚠️ Öğrenci bulunamadı: ${studentNumber}`);
+                errors.push(`${studentNumber}: Öğrenci bulunamadı`);
+                errorCount++;
+                processedCount++;
+                return processStudent(index + 1);
+              }
+              
+              const studentId = studentResults[0].id;
+              
+              // Bu test daha önce atanmış mı kontrol et
+              db.query(
+                'SELECT id FROM ogrenci_testleri WHERE ogrenci_id = ? AND test_id = ?',
+                [studentId, testId],
+                (err, existingAssignments) => {
+                  if (err) {
+                    console.log(`❌ DB hatası - ${studentNumber}: ${err.message}`);
+                    errors.push(`${studentNumber}: DB hatası`);
+                    errorCount++;
+                    processedCount++;
+                    return processStudent(index + 1);
+                  }
+                  
+                  if (existingAssignments.length > 0) {
+                    console.log(`⚠️ Test zaten atanmış: ${studentNumber}`);
+                    skippedCount++;
+                    processedCount++;
+                    return processStudent(index + 1);
+                  }
+                  
+                  // Test ata
+                  const sql = testName 
+                    ? 'INSERT INTO ogrenci_testleri (ogrenci_id, test_id, ozel_test_adi, durum, atanma_tarihi) VALUES (?, ?, ?, "beklemede", NOW())'
+                    : 'INSERT INTO ogrenci_testleri (ogrenci_id, test_id, durum, atanma_tarihi) VALUES (?, ?, "beklemede", NOW())';
+                  
+                  const params = testName ? [studentId, testId, testName] : [studentId, testId];
+                  
+                  db.query(sql, params, (err) => {
+                    if (err) {
+                      console.log(`❌ Atama hatası - ${studentNumber}: ${err.message}`);
+                      errors.push(`${studentNumber}: ${err.message}`);
+                      errorCount++;
+                    } else {
+                      console.log(`✅ Test atandı: ${studentNumber}`);
+                      successCount++;
+                    }
+                    
+                    processedCount++;
+                    processStudent(index + 1);
+                  });
+                }
+              );
+            }
+          );
+        };
+        
+        // İşlemi başlat
+        processStudent(0);
+      }
+    );
+}
 
 module.exports = router;
 

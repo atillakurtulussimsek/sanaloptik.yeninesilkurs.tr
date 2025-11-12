@@ -258,7 +258,7 @@ class Test {
           yanlis: yanlisSayisi,
           bos: bosSayisi,
           toplam: test.soru_sayisi,
-          puan: ((dogruSayisi * 100) / test.soru_sayisi).toFixed(2),
+          puan: parseFloat(((dogruSayisi * 100) / test.soru_sayisi).toFixed(2)), // Number olarak döndür
           detaylar: detaylar
         });
       });

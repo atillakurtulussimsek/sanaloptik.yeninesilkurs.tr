@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Toplu Test Atama - Admin Panel</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    
+    .header {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      border-radius: 15px;
+      padding: 20px 30px;
+      margin-bottom: 30px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    }
+    
+    .header-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    
+    .header h1 {
+      color: #2d3748;
+      font-size: 28px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .btn-back {
+      background: linear-gradient(135deg, #4299e1, #3182ce);
+      color: white;
+      text-decoration: none;
+      padding: 12px 24px;
+      border-radius: 10px;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(66, 153, 225, 0.3);
+    }
+    
+    .btn-back:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(66, 153, 225, 0.4);
+    }
+    
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 400px;
+      gap: 30px;
+    }
+    
+    .main-card {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      padding: 40px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+    }
+    
+    .form-title {
+      font-size: 24px;
+      font-weight: 700;
+      color: #2d3748;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .form-subtitle {
+      color: #718096;
+      margin-bottom: 30px;
+      font-size: 16px;
+    }
+    
+    .alert {
+      padding: 16px 20px;
+      border-radius: 12px;
+      margin-bottom: 30px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .alert-success {
+      background: linear-gradient(135deg, #48bb78, #38a169);
+      color: white;
+      border: 2px solid rgba(72, 187, 120, 0.3);
+    }
+    
+    .alert-error {
+      background: linear-gradient(135deg, #f56565, #e53e3e);
+      color: white;
+      border: 2px solid rgba(245, 101, 101, 0.3);
+    }
+    
+    .form-group {
+      margin-bottom: 25px;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #374151;
+      font-size: 15px;
+    }
+    
+    .required {
+      color: #e53e3e;
+    }
+    
+    .form-control {
+      width: 100%;
+      padding: 16px 20px;
+      border: 2px solid #e2e8f0;
+      border-radius: 12px;
+      font-size: 16px;
+      background: #ffffff;
+      transition: all 0.3s ease;
+      font-family: inherit;
+    }
+    
+    .form-control:focus {
+      outline: none;
+      border-color: #4299e1;
+      box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
+      transform: translateY(-1px);
+    }
+    
+    .form-control.textarea {
+      min-height: 150px;
+      resize: vertical;
+      font-family: 'Consolas', 'Monaco', monospace;
+      line-height: 1.5;
+    }
+    
+    .help-text {
+      margin-top: 8px;
+      font-size: 14px;
+      color: #718096;
+      line-height: 1.4;
+    }
+    
+    .input-group {
+      display: flex;
+      gap: 15px;
+      align-items: end;
+    }
+    
+    .input-group .form-group {
+      flex: 1;
+      margin-bottom: 0;
+    }
+    
+    .btn {
+      padding: 16px 32px;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      justify-content: center;
+    }
+    
+    .btn-primary {
+      background: linear-gradient(135deg, #4299e1, #3182ce);
+      color: white;
+      box-shadow: 0 4px 15px rgba(66, 153, 225, 0.3);
+    }
+    
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(66, 153, 225, 0.4);
+    }
+    
+    .btn-secondary {
+      background: linear-gradient(135deg, #a0aec0, #718096);
+      color: white;
+      box-shadow: 0 4px 15px rgba(160, 174, 192, 0.3);
+    }
+    
+    .btn-secondary:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(160, 174, 192, 0.4);
+    }
+    
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    
+    .btn-group {
+      display: flex;
+      gap: 15px;
+      margin-top: 30px;
+    }
+    
+    .info-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    
+    .info-card {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      border-radius: 15px;
+      padding: 25px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    }
+    
+    .info-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #2d3748;
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .info-item {
+      padding: 12px 0;
+      border-bottom: 1px solid #e2e8f0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .info-item:last-child {
+      border-bottom: none;
+    }
+    
+    .item-label {
+      font-weight: 600;
+      color: #4a5568;
+    }
+    
+    .item-value {
+      color: #2d3748;
+      font-weight: 500;
+    }
+    
+    .example-box {
+      background: #f7fafc;
+      border: 2px dashed #cbd5e0;
+      border-radius: 12px;
+      padding: 20px;
+      margin-top: 10px;
+    }
+    
+    .example-title {
+      font-weight: 600;
+      color: #4a5568;
+      margin-bottom: 10px;
+    }
+    
+    .example-text {
+      font-family: 'Consolas', 'Monaco', monospace;
+      background: white;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+      color: #2d3748;
+      white-space: pre-line;
+    }
+    
+    .validation-status {
+      margin-top: 10px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      display: none;
+    }
+    
+    .validation-status.valid {
+      background: #c6f6d5;
+      color: #22543d;
+      border: 1px solid #9ae6b4;
+      display: block;
+    }
+    
+    .validation-status.invalid {
+      background: #fed7d7;
+      color: #742a2a;
+      border: 1px solid #fc8181;
+      display: block;
+    }
+    
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 20px;
+      color: #4a5568;
+    }
+    
+    .spinner {
+      width: 30px;
+      height: 30px;
+      border: 3px solid #e2e8f0;
+      border-top-color: #4299e1;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 10px;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    @media (max-width: 1024px) {
+      .container {
+        grid-template-columns: 1fr;
+        gap: 20px;
+      }
+      
+      .header-content {
+        flex-direction: column;
+        gap: 15px;
+        text-align: center;
+      }
+      
+      .main-card {
+        padding: 30px 25px;
+      }
+      
+      .btn-group {
+        flex-direction: column;
+      }
+      
+      .input-group {
+        flex-direction: column;
+        gap: 20px;
+      }
+    }
+    
+    .counter {
+      font-size: 14px;
+      color: #718096;
+      margin-top: 5px;
+      text-align: right;
+    }
+    
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      background: #e2e8f0;
+      border-radius: 4px;
+      margin-top: 10px;
+      overflow: hidden;
+      display: none;
+    }
+    
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(135deg, #4299e1, #3182ce);
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-content">
+      <h1>🎯 Toplu Test Atama</h1>
+      <a href="/admin/dashboard" class="btn-back">← Dashboard'a Dön</a>
+    </div>
+  </div>
+  
+  <div class="container">
+    <div class="main-card">
+      <div class="form-title">
+        📤 Toplu Test Atama
+      </div>
+      <div class="form-subtitle">
+        Birden fazla öğrenciye aynı anda test atayabilirsiniz.
+      </div>
+      
+      <% if (basari) { %>
+        <div class="alert alert-success">
+          ✅ <%= basari %>
+        </div>
+      <% } %>
+      
+      <% if (hata) { %>
+        <div class="alert alert-error">
+          ⚠️ <%= hata %>
+        </div>
+      <% } %>
+      
+      <form method="POST" action="/admin/bulk-test-assign" id="bulkAssignForm">
+        <div class="form-group">
+          <label for="student_numbers">
+            Öğrenci Numaraları <span class="required">*</span>
+          </label>
+          <textarea
+            id="student_numbers"
+            name="student_numbers"
+            class="form-control textarea"
+            placeholder="Öğrenci numaralarını her satıra bir tane olacak şekilde yazın...&#10;&#10;Örnek:&#10;1001&#10;1002&#10;1003"
+            required
+            oninput="validateStudentNumbers()"
+          ></textarea>
+          <div class="help-text">
+            • Her satıra bir öğrenci numarası yazın<br>
+            • Virgül (,) ile de ayırabilirsiniz<br>
+            • Boş satırlar otomatik olarak göz ardı edilir
+          </div>
+          <div class="counter" id="studentCounter">0 öğrenci</div>
+          <div class="validation-status" id="studentValidation"></div>
+        </div>
+        
+        <div class="input-group">
+          <div class="form-group">
+            <label for="test_code">
+              Test Kodu <span class="required">*</span>
+            </label>
+            <input
+              type="text"
+              id="test_code"
+              name="test_code"
+              class="form-control"
+              placeholder="Örn: TEST2024 veya TEST2024/Özel Test Adım"
+              required
+              oninput="validateTestCode()"
+              style="text-transform: uppercase;"
+            >
+            <div class="help-text">
+              • Normal: TEST2024<br>
+              • Özel ad ile: TEST2024/Hafta Sonu Sınavı<br>
+              • "/" sonrası özel test adı olarak atanır
+            </div>
+            <div class="validation-status" id="testValidation"></div>
+          </div>
+          
+          <div class="form-group">
+            <label for="test_name">
+              Özel Test Adı (İsteğe Bağlı)
+            </label>
+            <input
+              type="text"
+              id="test_name"
+              name="test_name"
+              class="form-control"
+              placeholder="Öğrencilere gösterilecek test adı"
+            >
+            <div class="help-text">
+              Boş bırakılırsa orijinal test adı kullanılır
+            </div>
+          </div>
+        </div>
+        
+        <div class="progress-bar" id="progressBar">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+        
+        <div class="loading" id="loading">
+          <div class="spinner"></div>
+          İşlem devam ediyor...
+        </div>
+        
+        <div class="btn-group">
+          <button type="submit" class="btn btn-primary" id="submitBtn">
+            🎯 Toplu Atama Yap
+          </button>
+          <button type="button" class="btn btn-secondary" onclick="clearForm()">
+            🔄 Formu Temizle
+          </button>
+        </div>
+      </form>
+    </div>
+    
+    <div class="info-panel">
+      <div class="info-card">
+        <div class="info-title">ℹ️ Bilgilendirme</div>
+        <div class="info-item">
+          <span class="item-label">Desteklenen Formatlar</span>
+          <span class="item-value">Metin, CSV benzeri</span>
+        </div>
+        <div class="info-item">
+          <span class="item-label">Ayırıcılar</span>
+          <span class="item-value">Yeni satır, virgül</span>
+        </div>
+        <div class="info-item">
+          <span class="item-label">Maksimum</span>
+          <span class="item-value">Sınır yok</span>
+        </div>
+        <div class="info-item">
+          <span class="item-label">Duplicate Kontrol</span>
+          <span class="item-value">Otomatik</span>
+        </div>
+      </div>
+      
+      <div class="info-card">
+        <div class="info-title">📝 Örnek Format</div>
+        <div class="example-box">
+          <div class="example-title">Metin Formatı:</div>
+          <div class="example-text">1001
+1002
+1003
+1004</div>
+        </div>
+        <div class="example-box">
+          <div class="example-title">Virgülle Ayrılmış:</div>
+          <div class="example-text">1001, 1002, 1003, 1004</div>
+        </div>
+      </div>
+      
+      <div class="info-card">
+        <div class="info-title">🎯 Test Kodu Formatları</div>
+        <div class="example-box">
+          <div class="example-title">Normal Test Kodu:</div>
+          <div class="example-text">TEST2024</div>
+        </div>
+        <div class="example-box">
+          <div class="example-title">Özel Ad ile Test Kodu:</div>
+          <div class="example-text">TEST2024/Hafta Sonu Denemesi</div>
+        </div>
+        <div class="example-box">
+          <div class="example-title">Ayrıntılı Özel Ad:</div>
+          <div class="example-text">MAT001/2024 Matematik Final Sınavı</div>
+        </div>
+      </div>
+      
+      <div class="info-card">
+        <div class="info-title">⚠️ Önemli Notlar</div>
+        <div class="info-item">
+          <span class="item-label">Duplicate Testler</span>
+          <span class="item-value">Atlanır</span>
+        </div>
+        <div class="info-item">
+          <span class="item-label">Geçersiz Numaralar</span>
+          <span class="item-value">Hata olarak rapor edilir</span>
+        </div>
+        <div class="info-item">
+          <span class="item-label">Test Kodu/Özel Ad</span>
+          <span class="item-value">Slash (/) ile ayırın</span>
+        </div>
+        <div class="info-item">
+          <span class="item-label">Öncelik</span>
+          <span class="item-value">Slash formatı > ayrı alan</span>
+        </div>
+        <div class="info-item">
+          <span class="item-label">İşlem Logları</span>
+          <span class="item-value">Otomatik kaydedilir</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    let testValidationTimer;
+    let testCodeValid = false;
+    
+    function validateStudentNumbers() {
+      const textarea = document.getElementById('student_numbers');
+      const counter = document.getElementById('studentCounter');
+      const validation = document.getElementById('studentValidation');
+      
+      const text = textarea.value.trim();
+      if (!text) {
+        counter.textContent = '0 öğrenci';
+        validation.style.display = 'none';
+        return;
+      }
+      
+      const numbers = text
+        .split(/[\n,\s]+/)
+        .map(num => num.trim())
+        .filter(num => num.length > 0);
+      
+      counter.textContent = `${numbers.length} öğrenci`;
+      
+      // Basit validasyon - sayısal değerler kontrolü
+      const invalidNumbers = numbers.filter(num => !/^\d+$/.test(num));
+      
+      if (invalidNumbers.length > 0) {
+        validation.textContent = `⚠️ Geçersiz numaralar: ${invalidNumbers.slice(0, 3).join(', ')}${invalidNumbers.length > 3 ? '...' : ''}`;
+        validation.className = 'validation-status invalid';
+      } else if (numbers.length > 0) {
+        validation.textContent = `✅ ${numbers.length} geçerli öğrenci numarası`;
+        validation.className = 'validation-status valid';
+      }
+      
+      updateSubmitButton();
+    }
+    
+    function validateTestCode() {
+      const input = document.getElementById('test_code');
+      const validation = document.getElementById('testValidation');
+      
+      clearTimeout(testValidationTimer);
+      
+      let testCode = input.value.trim().toUpperCase();
+      input.value = testCode;
+      
+      if (!testCode) {
+        validation.style.display = 'none';
+        testCodeValid = false;
+        updateSubmitButton();
+        return;
+      }
+      
+      // Test kodu/özel ad formatını kontrol et
+      let actualTestCode = testCode;
+      let customTestName = null;
+      
+      if (testCode.includes('/')) {
+        const parts = testCode.split('/');
+        if (parts.length === 2) {
+          actualTestCode = parts[0].trim();
+          customTestName = parts[1].trim();
+          
+          if (!actualTestCode) {
+            validation.textContent = '❌ Test kodu kısmı boş olamaz';
+            validation.className = 'validation-status invalid';
+            validation.style.display = 'block';
+            testCodeValid = false;
+            updateSubmitButton();
+            return;
+          }
+          
+          if (!customTestName) {
+            validation.textContent = '❌ "/" sonrası özel ad boş olamaz';
+            validation.className = 'validation-status invalid';
+            validation.style.display = 'block';
+            testCodeValid = false;
+            updateSubmitButton();
+            return;
+          }
+          
+          validation.textContent = `🎯 Test: ${actualTestCode} | Özel Ad: "${customTestName}" - Kontrol ediliyor...`;
+        } else {
+          validation.textContent = '❌ Sadece bir "/" kullanın (Örn: TEST001/Özel Ad)';
+          validation.className = 'validation-status invalid';
+          validation.style.display = 'block';
+          testCodeValid = false;
+          updateSubmitButton();
+          return;
+        }
+      } else {
+        validation.textContent = '🔍 Kontrol ediliyor...';
+      }
+      
+      validation.className = 'validation-status';
+      validation.style.display = 'block';
+      
+      testValidationTimer = setTimeout(() => {
+        fetch(`/admin/test-havuz-kontrol?kod=${encodeURIComponent(actualTestCode)}`)
+          .then(response => response.json())
+          .then(data => {
+            if (data.bulundu) {
+              if (customTestName) {
+                validation.textContent = `✅ Test bulundu: ${data.test_adi} | Özel ad: "${customTestName}" ile atanacak`;
+              } else {
+                validation.textContent = `✅ Test bulundu: ${data.test_adi}`;
+              }
+              validation.className = 'validation-status valid';
+              testCodeValid = true;
+            } else {
+              validation.textContent = `❌ Test kodu bulunamadı: ${actualTestCode}`;
+              validation.className = 'validation-status invalid';
+              testCodeValid = false;
+            }
+            updateSubmitButton();
+          })
+          .catch(error => {
+            console.error('Test kontrol hatası:', error);
+            validation.textContent = '⚠️ Kontrol edilemedi';
+            validation.className = 'validation-status invalid';
+            testCodeValid = false;
+            updateSubmitButton();
+          });
+      }, 500);
+    }
+    
+    function updateSubmitButton() {
+      const submitBtn = document.getElementById('submitBtn');
+      const studentNumbers = document.getElementById('student_numbers').value.trim();
+      const testCode = document.getElementById('test_code').value.trim();
+      
+      const hasStudents = studentNumbers.length > 0;
+      const hasTestCode = testCode.length > 0;
+      
+      submitBtn.disabled = !(hasStudents && hasTestCode && testCodeValid);
+    }
+    
+    function clearForm() {
+      document.getElementById('bulkAssignForm').reset();
+      document.getElementById('studentCounter').textContent = '0 öğrenci';
+      document.getElementById('studentValidation').style.display = 'none';
+      document.getElementById('testValidation').style.display = 'none';
+      testCodeValid = false;
+      updateSubmitButton();
+    }
+    
+    // Form submit olduğunda loading göster
+    document.getElementById('bulkAssignForm').addEventListener('submit', function(e) {
+      const loading = document.getElementById('loading');
+      const submitBtn = document.getElementById('submitBtn');
+      
+      loading.style.display = 'block';
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'İşleniyor...';
+      
+      // İşlem süresini simüle et (gerçek işlemde kaldırılabilir)
+      const progressBar = document.getElementById('progressBar');
+      const progressFill = document.getElementById('progressFill');
+      progressBar.style.display = 'block';
+      
+      let progress = 0;
+      const interval = setInterval(() => {
+        progress += Math.random() * 20;
+        if (progress > 90) progress = 90;
+        progressFill.style.width = progress + '%';
+      }, 100);
+      
+      // Form submit edildikten sonra interval'ı temizle
+      setTimeout(() => {
+        clearInterval(interval);
+        progressFill.style.width = '100%';
+      }, 2000);
+    });
+    
+    // Sayfa yüklendiğinde buton durumunu kontrol et
+    document.addEventListener('DOMContentLoaded', function() {
+      updateSubmitButton();
+      
+      // Test kodu input'una focus olduğunda büyük harfe çevir
+      document.getElementById('test_code').addEventListener('input', function(e) {
+        e.target.value = e.target.value.toUpperCase();
+      });
+    });
+  </script>
+</body>
+</html>

@@ -20,7 +20,7 @@ app.set('view engine', 'ejs');
 
 app.use(logger('dev'));
 app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+app.use(express.urlencoded({ extended: true })); // array parsing için extended: true
 app.use(cookieParser());
 app.use(session({
   secret: 'sanaloptik-secret-key-2024',

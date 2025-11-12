@@ -229,7 +229,7 @@
   <div class="container">
     <!-- Test Sonuçlarını Güncelle Butonu -->
     <button onclick="testSonuclariniGuncelle()" class="btn-update" id="updateBtn">
-      🔄 Test Sonuçlarını Yeniden Hesapla
+      � Tüm Test Sonuçlarını Gözden Geçir
     </button>
     <div id="updateMessage" style="display: none;"></div>
     
@@ -492,7 +492,7 @@
       const messageDiv = document.getElementById('updateMessage');
       
       btn.disabled = true;
-      btn.textContent = '🔄 Güncelleniyor...';
+      btn.textContent = '🔄 Gözden geçiriliyor...';
       messageDiv.style.display = 'none';
       
       fetch('/admin/test-sonuclarini-guncelle', {
@@ -504,21 +504,46 @@
       .then(response => response.json())
       .then(data => {
         btn.disabled = false;
-        btn.textContent = '🔄 Test Sonuçlarını Yeniden Hesapla';
+        btn.textContent = '� Tüm Test Sonuçlarını Gözden Geçir';
         
         messageDiv.style.display = 'block';
         if (data.success) {
           messageDiv.className = 'update-message update-success';
-          messageDiv.innerHTML = `✅ ${data.message}`;
           
-          if (data.hatalar && data.hatalar.length > 0) {
-            messageDiv.innerHTML += `<br><br><strong>Hatalar:</strong><br>${data.hatalar.join('<br>')}`;
+          let mesaj = `✅ ${data.message}`;
+          
+          if (data.toplamTest && data.guncellenen !== undefined) {
+            mesaj += `<br><br><strong>📊 Detaylar:</strong>`;
+            mesaj += `<br>• Gözden geçirilen test: ${data.toplamTest}`;
+            mesaj += `<br>• Güncellenen test: ${data.guncellenen}`;
+            mesaj += `<br>• Değişmeyen test: ${data.degismeyen || 0}`;
+            
+            if (data.hatalar && data.hatalar.length > 0) {
+              mesaj += `<br>• Hatalı test: ${data.hatalar.length}`;
+            }
           }
           
-          // 3 saniye sonra sayfayı yenile
+          // Değişiklik detaylarını göster
+          if (data.detaylar && data.detaylar.length > 0) {
+            mesaj += `<br><br><strong>🔄 Son Değişiklikler (İlk 10):</strong>`;
+            data.detaylar.forEach(detay => {
+              const degisimIcon = detay.degisim > 0 ? '📈' : detay.degisim < 0 ? '📉' : '🔄';
+              mesaj += `<br>• ${detay.ogrenci} - ${detay.test}`;
+              mesaj += `<br>  ${degisimIcon} Puan: ${detay.eskiPuan} → ${detay.yeniPuan} (${detay.degisim > 0 ? '+' : ''}${detay.degisim.toFixed(2)})`;
+              mesaj += `<br>  ✓ Doğru: ${detay.eskiDogru} → ${detay.yeniDogru}`;
+            });
+          }
+          
+          messageDiv.innerHTML = mesaj;
+          
+          if (data.hatalar && data.hatalar.length > 0) {
+            messageDiv.innerHTML += `<br><br><strong>❌ Hatalar:</strong><br>${data.hatalar.join('<br>')}`;
+          }
+          
+          // 5 saniye sonra sayfayı yenile (daha fazla bilgi görmek için)
           setTimeout(() => {
             window.location.reload();
-          }, 3000);
+          }, 5000);
         } else {
           messageDiv.className = 'update-message update-error';
           messageDiv.textContent = `❌ ${data.message}`;
@@ -526,7 +551,7 @@
       })
       .catch(error => {
         btn.disabled = false;
-        btn.textContent = '🔄 Test Sonuçlarını Yeniden Hesapla';
+        btn.textContent = '� Tüm Test Sonuçlarını Gözden Geçir';
         
         messageDiv.style.display = 'block';
         messageDiv.className = 'update-message update-error';
